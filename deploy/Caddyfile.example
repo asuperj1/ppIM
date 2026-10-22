@@ -1,0 +1,44 @@
+# =============================================================================
+#  deploy/Caddyfile.example
+#  线上 xiaojietong.online 由 Caddy 提供服务，给 pp 加一个独立子域名只需这一块。
+#
+#  使用步骤：
+#    1. 阿里云 DNS 给 pp 加 A 记录，指向服务器公网 IP
+#    2. 把下面 pp.xiaojietong.online { ... } 追加到现有 Caddyfile
+#    3. sudo caddy validate --config /etc/caddy/Caddyfile
+#    4. sudo systemctl reload caddy
+#
+#  说明：
+#    - Caddy 会自动为 pp.xiaojietong.online 申请并续期 HTTPS 证书
+#    - reverse_proxy 默认透传 Upgrade / Connection，WebSocket 直接可用
+#    - 服务器 8080 已被其他服务占用，所以 pp 用 18080
+# =============================================================================
+
+pp.xiaojietong.online {
+    encode zstd gzip
+
+    # pp 服务端（im_server）监听的本机端口
+    reverse_proxy 127.0.0.1:18080 {
+        # WebSocket 长连接，超时要大于心跳间隔（25s）
+        transport http {
+            read_timeout 300s
+            write_timeout 300s
+        }
+    }
+
+    # 可选：只保留必要的日志
+    log {
+        output file /var/log/caddy/pp-access.log {
+            roll_size 20MiB
+            roll_keep 5
+        }
+    }
+}
+
+# -----------------------------------------------------------------------------
+#  如果 pp 与 Caddy 不在同一台机器，把 127.0.0.1 换成实际内网地址：
+#
+#  pp.xiaojietong.online {
+#      reverse_proxy 10.0.0.12:18080
+#  }
+# -----------------------------------------------------------------------------

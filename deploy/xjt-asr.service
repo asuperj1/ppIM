@@ -1,0 +1,33 @@
+[Unit]
+# 校捷通 ASR（语音转文字）服务 —— pp 与校捷通**共用这一份**，不要各自部署。
+# 监听 127.0.0.1:9001，只接受本机调用：
+#   · 校捷通后端  XJT_ASR_HTTP_URL=http://127.0.0.1:9001/transcribe
+#   · pp 前端      https://pp.xiaojietong.online/voice-api/... （Caddy 反代 + 内部令牌）
+Description=xiaojietong ASR server (faster-whisper, shared by pp)
+After=network.target
+
+[Service]
+Type=simple
+User=xjt
+Group=xjt
+WorkingDirectory=/opt/xiaojietong/app/backend
+EnvironmentFile=/opt/xiaojietong/shared/server.env
+# 模型缓存/临时文件需要可写 HOME；服务器拉不到 huggingface，
+# 因此使用预先下好的本地 CTranslate2 模型目录（deploy/fetch_whisper_model.sh）
+Environment=HOME=/opt/xiaojietong/cache
+Environment=OMP_NUM_THREADS=2
+Environment=HF_HUB_OFFLINE=1
+Environment=TRANSFORMERS_OFFLINE=1
+ExecStart=/opt/xiaojietong/app/backend/.venv/bin/python -m app.services.asr.server \
+    --host 127.0.0.1 \
+    --port 9001 \
+    --model /opt/xiaojietong/asr-model \
+    --device cpu \
+    --compute int8
+Restart=always
+RestartSec=5
+# 2C/1.9G 的机器：限制内存，避免挤掉主应用与 pp
+MemoryMax=900M
+
+[Install]
+WantedBy=multi-user.target

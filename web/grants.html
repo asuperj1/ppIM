@@ -1,0 +1,387 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#ededed">
+<meta name="robots" content="noindex, nofollow">
+<title>授权管理 · pp</title>
+<link rel="stylesheet" href="css/app.css">
+<style>
+  body { background: #ededed; }
+
+  .grants-page {
+    min-height: 100vh;
+    min-height: 100dvh;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .grants-head {
+    position: sticky;
+    top: 0;
+    z-index: 5;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 12px 14px;
+    background: rgba(237, 237, 237, .92);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border-bottom: 1px solid rgba(0, 0, 0, .06);
+  }
+  .grants-back {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 34px; height: 34px;
+    border: 0; border-radius: 10px;
+    background: transparent;
+    color: var(--text);
+    cursor: pointer;
+  }
+  .grants-back:hover { background: rgba(0, 0, 0, .05); }
+  .grants-title {
+    flex: 1;
+    margin: 0;
+    font-size: 16.5px;
+    font-weight: 600;
+    text-align: center;
+    padding-right: 34px;
+  }
+
+  .grants-body {
+    flex: 1;
+    width: 100%;
+    max-width: 620px;
+    margin: 0 auto;
+    padding: 16px 14px 40px;
+  }
+
+  .grants-tip {
+    margin: 0 0 14px;
+    padding: 11px 13px;
+    border-radius: var(--radius);
+    background: #fff;
+    color: var(--text-secondary);
+    font-size: 12.5px;
+    line-height: 1.7;
+    box-shadow: var(--shadow-sm);
+  }
+
+  .grant-card {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 14px;
+    margin-bottom: 10px;
+    border-radius: 12px;
+    background: #fff;
+    box-shadow: var(--shadow-sm);
+  }
+  .grant-icon {
+    width: 44px; height: 44px;
+    flex: none;
+    border-radius: 12px;
+    display: grid; place-items: center;
+    background: linear-gradient(135deg, #07c160, #06a552);
+    color: #fff;
+    font-size: 17px;
+    font-weight: 700;
+  }
+  .grant-main { flex: 1; min-width: 0; }
+  .grant-name {
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--text);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .grant-sub {
+    margin-top: 3px;
+    font-size: 12px;
+    color: var(--text-secondary);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .grant-badge {
+    display: inline-block;
+    margin-left: 6px;
+    padding: 1px 6px;
+    border-radius: 999px;
+    font-size: 11px;
+    vertical-align: 1px;
+    background: rgba(7, 193, 96, .12);
+    color: var(--green-dark);
+  }
+  .grant-badge.off {
+    background: rgba(0, 0, 0, .06);
+    color: var(--text-secondary);
+  }
+  .grant-revoke {
+    flex: none;
+    padding: 7px 13px;
+    border-radius: 8px;
+    border: 1px solid rgba(250, 81, 81, .35);
+    background: rgba(250, 81, 81, .06);
+    color: var(--danger);
+    font: inherit;
+    font-size: 12.5px;
+    cursor: pointer;
+    transition: background .15s, opacity .15s;
+  }
+  .grant-revoke:hover { background: rgba(250, 81, 81, .12); }
+  .grant-revoke:disabled { opacity: .5; cursor: default; }
+
+  .grants-empty {
+    padding: 60px 20px;
+    text-align: center;
+    color: var(--text-secondary);
+    font-size: 13.5px;
+    line-height: 1.9;
+  }
+  .grants-empty .big {
+    font-size: 34px;
+    margin-bottom: 10px;
+    opacity: .35;
+  }
+  .grants-empty button {
+    margin-top: 14px;
+    padding: 9px 20px;
+    border: 0;
+    border-radius: 8px;
+    background: var(--green);
+    color: #fff;
+    font: inherit;
+    font-size: 13.5px;
+    cursor: pointer;
+  }
+
+  .grants-loading {
+    padding: 50px 0;
+    text-align: center;
+    color: var(--text-secondary);
+    font-size: 13px;
+  }
+
+  .toast-tip {
+    position: fixed;
+    left: 50%;
+    bottom: 42px;
+    transform: translateX(-50%);
+    max-width: 80vw;
+    padding: 9px 16px;
+    border-radius: 8px;
+    background: rgba(0, 0, 0, .78);
+    color: #fff;
+    font-size: 13px;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity .2s;
+    z-index: 20;
+  }
+  .toast-tip.show { opacity: 1; }
+</style>
+</head>
+<body>
+<div class="grants-page">
+  <header class="grants-head">
+    <button class="grants-back" id="back" title="返回">
+      <svg viewBox="0 0 24 24" width="20" height="20" fill="none"
+           stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+        <polyline points="15 18 9 12 15 6"/>
+      </svg>
+    </button>
+    <h1 class="grants-title">授权管理</h1>
+  </header>
+
+  <main class="grants-body">
+    <p class="grants-tip">
+      以下是使用 pp 账号登录过的应用。解除授权后，对方已拿到的访问令牌会立即失效，
+      需要时重新走一次 pp 授权即可。
+    </p>
+    <div id="list">
+      <div class="grants-loading">加载中…</div>
+    </div>
+  </main>
+</div>
+
+<div class="toast-tip" id="toast"></div>
+
+<script>
+(function () {
+  'use strict';
+
+  var TOKEN_KEY = 'pp_token';
+  var listBox = document.getElementById('list');
+  var toastEl = document.getElementById('toast');
+  var toastTimer = null;
+
+  // 来源 tab（由 app.js 跳转时带 ?from=me），用于返回时原路回去。
+  // 不用 history.back()：pp 是 SPA，直接用回退无法指定要恢复的 tab，
+  // 且首次直接打开本页时 history 里可能是无关页面。
+  var fromView = (function () {
+    var v = new URLSearchParams(location.search).get('from') || '';
+    return ['chats', 'contacts', 'feed', 'me'].indexOf(v) !== -1 ? v : '';
+  })();
+
+  function toast(message) {
+    toastEl.textContent = message;
+    toastEl.classList.add('show');
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(function () { toastEl.classList.remove('show'); }, 2200);
+  }
+
+  function back() {
+    location.href = fromView ? '/?view=' + encodeURIComponent(fromView) : '/';
+  }
+  document.getElementById('back').addEventListener('click', back);
+
+  function token() {
+    try { return localStorage.getItem(TOKEN_KEY) || ''; } catch (err) { return ''; }
+  }
+
+  function fmtTime(seconds) {
+    var n = Number(seconds);
+    if (!n) return '—';
+    var d = new Date(n * 1000);
+    var pad = function (x) { return x < 10 ? '0' + x : String(x); };
+    return d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate()) +
+      ' ' + pad(d.getHours()) + ':' + pad(d.getMinutes());
+  }
+
+  function empty(message, withLogin) {
+    listBox.innerHTML = '<div class="grants-empty">' +
+      '<div class="big">🔐</div>' +
+      '<div>' + message + '</div>' +
+      (withLogin ? '<button id="go-login">去登录 pp</button>' : '') +
+      '</div>';
+    var btn = document.getElementById('go-login');
+    if (btn) btn.addEventListener('click', function () { window.location.href = '/'; });
+  }
+
+  function scopeText(scope) {
+    var names = { profile: '头像、昵称、pp 号' };
+    var list = String(scope || 'profile').split(/\s+/).filter(Boolean);
+    var labels = list.map(function (item) { return names[item] || item; });
+    return labels.join('、');
+  }
+
+  function render(grants) {
+    if (!grants || !grants.length) {
+      empty('还没有任何应用获得过你的授权', false);
+      return;
+    }
+
+    listBox.innerHTML = '';
+    grants.forEach(function (g) {
+      var card = document.createElement('div');
+      card.className = 'grant-card';
+
+      var icon = document.createElement('div');
+      icon.className = 'grant-icon';
+      icon.textContent = (g.name || g.clientId || '?').slice(0, 1);
+
+      var main = document.createElement('div');
+      main.className = 'grant-main';
+
+      var nameEl = document.createElement('div');
+      nameEl.className = 'grant-name';
+      nameEl.textContent = g.name || g.clientId || '未知应用';
+      var active = Number(g.activeTokens) > 0;
+      var badge = document.createElement('span');
+      badge.className = 'grant-badge' + (active ? '' : ' off');
+      badge.textContent = active ? '已授权' : '已过期';
+      nameEl.appendChild(badge);
+
+      var subEl = document.createElement('div');
+      subEl.className = 'grant-sub';
+      subEl.textContent = '权限：' + scopeText(g.scope) + ' · 最近授权 ' + fmtTime(g.lastAuthorizedAt);
+
+      var idEl = document.createElement('div');
+      idEl.className = 'grant-sub';
+      idEl.style.color = 'var(--text-muted)';
+      idEl.textContent = g.clientId || '';
+
+      main.appendChild(nameEl);
+      main.appendChild(subEl);
+      main.appendChild(idEl);
+
+      var btn = document.createElement('button');
+      btn.className = 'grant-revoke';
+      btn.type = 'button';
+      btn.textContent = active ? '解除授权' : '清除记录';
+      btn.addEventListener('click', function () {
+        var label = active ? '解除后该应用需要重新授权，确定吗？' : '清除这条授权记录？';
+        if (!window.confirm(label)) return;
+
+        btn.disabled = true;
+        btn.textContent = '处理中…';
+
+        fetch('/api/grants/revoke', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Accept: 'application/json',
+            Authorization: 'Bearer ' + token(),
+          },
+          body: JSON.stringify({ clientId: g.clientId }),
+        }).then(function (res) {
+          return res.json().catch(function () { return {}; }).then(function (body) {
+            if (res.ok && body && body.success) {
+              toast('已解除对「' + (g.name || g.clientId) + '」的授权');
+              load();
+              return;
+            }
+            btn.disabled = false;
+            btn.textContent = '重试';
+            toast((body && body.errMsg) || '操作失败，请稍后重试');
+          });
+        }).catch(function () {
+          btn.disabled = false;
+          btn.textContent = '重试';
+          toast('网络异常，请稍后重试');
+        });
+      });
+
+      card.appendChild(icon);
+      card.appendChild(main);
+      card.appendChild(btn);
+      listBox.appendChild(card);
+    });
+  }
+
+  function load() {
+    if (!token()) {
+      empty('请先登录 pp 账号', true);
+      return;
+    }
+
+    listBox.innerHTML = '<div class="grants-loading">加载中…</div>';
+
+    fetch('/api/grants', {
+      headers: { Accept: 'application/json', Authorization: 'Bearer ' + token() },
+    }).then(function (res) {
+      return res.json().catch(function () { return {}; }).then(function (body) {
+        if (res.ok && body && body.success) {
+          render(body.grants || []);
+          return;
+        }
+        if (res.status === 401) {
+          empty('登录状态已失效，请重新登录', true);
+          return;
+        }
+        empty((body && body.errMsg) || '加载失败，请稍后重试', false);
+      });
+    }).catch(function () {
+      empty('网络异常，请稍后重试', false);
+    });
+  }
+
+  load();
+})();
+</script>
+</body>
+</html>

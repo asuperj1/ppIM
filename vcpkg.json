@@ -1,0 +1,11 @@
+{
+  "name": "pp",
+  "version": "0.1.0",
+  "description": "pp —— C++17 + Asio + Protobuf + SQLite 的网页版即时通讯应用",
+  "dependencies": [
+    "asio",
+    "protobuf",
+    "spdlog",
+    "sqlite3"
+  ]
+}

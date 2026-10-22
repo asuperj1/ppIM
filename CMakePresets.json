@@ -1,0 +1,52 @@
+{
+  "version": 3,
+  "cmakeMinimumRequired": { "major": 3, "minor": 21, "patch": 0 },
+  "configurePresets": [
+    {
+      "name": "default",
+      "displayName": "MSVC x64 + vcpkg manifest (VS2026, 工具集与 vcpkg 一致)",
+      "generator": "Visual Studio 18 2026",
+      "architecture": { "value": "x64", "strategy": "set" },
+      "binaryDir": "${sourceDir}/build",
+      "environment": {
+        "VCPKG_ROOT": "E:/vcpkg"
+      },
+      "cacheVariables": {
+        "CMAKE_TOOLCHAIN_FILE": "$env{VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake",
+        "VCPKG_TARGET_TRIPLET": "x64-windows",
+        "VCPKG_INSTALLED_DIR": "${sourceDir}/vcpkg_installed"
+      }
+    },
+    {
+      "name": "linux",
+      "displayName": "Linux x64 + apt 系统依赖 (部署到 pp.xiaojietong.online)",
+      "generator": "Unix Makefiles",
+      "binaryDir": "${sourceDir}/build-linux",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release",
+        "PP_USE_SYSTEM_DEPS": "ON"
+      }
+    }
+  ],
+  "buildPresets": [
+    {
+      "name": "relwithdebinfo",
+      "displayName": "RelWithDebInfo  <-- 日常开发用这个",
+      "description": "有完整 PDB 可断点，CRT 与 vcpkg 预编译库一致，避开跨 CRT 释放崩溃",
+      "configurePreset": "default",
+      "configuration": "RelWithDebInfo"
+    },
+    { "name": "release", "configurePreset": "default", "configuration": "Release" },
+    {
+      "name": "debug",
+      "displayName": "Debug  (注意：与 vcpkg 库 CRT 不一致，容易莫名崩溃，慎用)",
+      "configurePreset": "default",
+      "configuration": "Debug"
+    },
+    {
+      "name": "linux-release",
+      "displayName": "Linux Release",
+      "configurePreset": "linux"
+    }
+  ]
+}

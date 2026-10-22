@@ -1,0 +1,107 @@
+# =============================================================================
+#  deploy/nginx-pp.conf.example
+#  把 xiaojietong.online 反向代理到本机的 pp 服务端（默认 8080）。
+#
+#  三种常见用法（按需选一种）：
+#    A. 主域名根路径   http://xiaojietong.online/
+#    B. 子路径         https://xiaojietong.online/pp/
+#    C. 独立子域名     https://pp.xiaojietong.online/
+#
+#  用法：
+#    1. 安装 Nginx for Windows
+#    2. 把对应 server {} 合并进 conf/nginx.conf 的 http {} 块内
+#    3. nginx -t && nginx -s reload
+#
+#  注意：WebSocket 必须带 Upgrade / Connection 两个头，否则 /ws 握手会 400。
+# =============================================================================
+server {
+    listen 80;
+    server_name xiaojietong.online www.xiaojietong.online;
+
+    # 静态页面、/ws、/api/health 全部由 pp 服务端处理
+    location / {
+        proxy_pass http://127.0.0.1:8080;
+
+        proxy_http_version 1.1;
+        proxy_set_header Host              $host;
+        proxy_set_header X-Real-IP         $remote_addr;
+        proxy_set_header X-Forwarded-For   $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+
+        # WebSocket 握手
+        proxy_set_header Upgrade    $http_upgrade;
+        proxy_set_header Connection "upgrade";
+
+        # 心跳间隔 25s，这里给足余量，避免长连接被代理提前掐断
+        proxy_read_timeout 300s;
+        proxy_send_timeout 300s;
+    }
+}
+
+# HTTPS 版本（用 certbot / 阿里云证书申请后取消注释）
+# server {
+#     listen 443 ssl;
+#     http2 on;
+#     server_name xiaojietong.online www.xiaojietong.online;
+#
+#     ssl_certificate     C:/nginx/cert/xiaojietong.online.pem;
+#     ssl_certificate_key C:/nginx/cert/xiaojietong.online.key;
+#
+#     location / {
+#         proxy_pass http://127.0.0.1:8080;
+#         proxy_http_version 1.1;
+#         proxy_set_header Host              $host;
+#         proxy_set_header X-Real-IP         $remote_addr;
+#         proxy_set_header X-Forwarded-For   $proxy_add_x_forwarded_for;
+#         proxy_set_header X-Forwarded-Proto $scheme;
+#         proxy_set_header Upgrade    $http_upgrade;
+#         proxy_set_header Connection "upgrade";
+#         proxy_read_timeout 300s;
+#     }
+# }
+
+# -----------------------------------------------------------------------------
+#  方案 B：部署到 https://xiaojietong.online/pp/
+#  前端会自动把 WebSocket 连到 /pp/ws，无需改代码。
+#  注意 location 末尾的斜杠与 proxy_pass 末尾的斜杠：前者会被剥掉。
+# -----------------------------------------------------------------------------
+# server {
+#     listen 443 ssl;
+#     server_name xiaojietong.online;
+#     ssl_certificate     C:/nginx/cert/xiaojietong.online.pem;
+#     ssl_certificate_key C:/nginx/cert/xiaojietong.online.key;
+#
+#     location = /pp { return 301 /pp/; }
+#
+#     location /pp/ {
+#         proxy_pass http://127.0.0.1:8080/;   # 末尾斜杠 = 剥掉 /pp 前缀
+#         proxy_http_version 1.1;
+#         proxy_set_header Host              $host;
+#         proxy_set_header X-Real-IP         $remote_addr;
+#         proxy_set_header X-Forwarded-For   $proxy_add_x_forwarded_for;
+#         proxy_set_header X-Forwarded-Proto $scheme;
+#         proxy_set_header Upgrade    $http_upgrade;
+#         proxy_set_header Connection "upgrade";
+#         proxy_read_timeout 300s;
+#     }
+# }
+
+# -----------------------------------------------------------------------------
+#  方案 C：独立子域名 https://pp.xiaojietong.online/
+#  先给 pp 加一条 A 记录指向同一台服务器，然后：
+# -----------------------------------------------------------------------------
+# server {
+#     listen 443 ssl;
+#     server_name pp.xiaojietong.online;
+#     ssl_certificate     C:/nginx/cert/pp.xiaojietong.online.pem;
+#     ssl_certificate_key C:/nginx/cert/pp.xiaojietong.online.key;
+#
+#     location / {
+#         proxy_pass http://127.0.0.1:8080;
+#         proxy_http_version 1.1;
+#         proxy_set_header Host              $host;
+#         proxy_set_header Upgrade    $http_upgrade;
+#         proxy_set_header Connection "upgrade";
+#         proxy_read_timeout 300s;
+#     }
+# }

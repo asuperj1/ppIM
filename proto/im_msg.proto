@@ -1,0 +1,676 @@
+// =============================================================================
+//  proto/im_msg.proto —— pp 全部协议定义
+//
+//  传输方式：
+//    A. WebSocket：文本帧，内容为 WebEnvelope 的 JSON（body 里放内层消息 JSON）
+//    B. 原始 TCP ：4 字节大端长度头 + MsgPackage 序列化字节
+//  两条传输共用完全相同的内层消息定义。
+// =============================================================================
+syntax = "proto3";
+
+package im;
+
+// -----------------------------------------------------------------------------
+// 消息类型常量（必须与 common/include/im/common/msg_type.hpp 严格一致）
+//   1 : LOGIN_REQ                 登录请求
+//   2 : LOGIN_RSP                 登录响应
+//   3 : CHAT_PRIVATE              私聊文本消息
+//   4 : HEARTBEAT                 心跳
+//   5 : REGISTER_REQ              注册请求
+//   6 : REGISTER_RSP              注册响应
+//   7 : ONLINE_USERS_PUSH         全量用户在线状态
+//   8 : CONVERSATION_LIST_PUSH    会话列表
+//   9 : HISTORY_REQ               私聊历史请求
+//  10 : HISTORY_RSP               私聊历史响应
+//  11 : READ_REQ                  私聊已读
+//  12 : TYPING                    正在输入
+//  13 : ERROR_PUSH                错误提示
+//  14 : CHAT_ACK                  私聊回执
+//  15 : PROFILE_UPDATE_REQ        修改资料（昵称/签名/pp号）
+//  16 : PROFILE_UPDATE_RSP        资料修改结果
+//  17 : FRIEND_SEARCH_REQ         搜索用户
+//  18 : FRIEND_SEARCH_RSP         搜索结果
+//  19 : FRIEND_REQUEST_REQ        发送好友申请
+//  20 : FRIEND_REQUEST_RSP        申请发送结果
+//  21 : FRIEND_REQUEST_PUSH       收到好友申请 / 申请状态变化
+//  22 : FRIEND_REQUEST_LIST_REQ   拉取待处理申请
+//  23 : FRIEND_REQUEST_LIST_RSP   待处理申请列表
+//  24 : FRIEND_REQUEST_HANDLE_REQ 同意 / 拒绝申请
+//  25 : FRIEND_REQUEST_HANDLE_RSP 处理结果
+//  26 : FRIEND_LIST_PUSH          好友列表
+//  27 : GROUP_CREATE_REQ          创建群聊
+//  28 : GROUP_CREATE_RSP          创建结果
+//  29 : GROUP_LIST_PUSH           我的群聊列表
+//  30 : GROUP_INVITE_REQ          邀请入群
+//  31 : GROUP_INVITE_RSP          邀请结果
+//  32 : GROUP_QUIT_REQ            退出 / 解散群聊
+//  33 : GROUP_QUIT_RSP            退出结果
+//  34 : GROUP_MEMBER_LIST_REQ     群成员列表请求
+//  35 : GROUP_MEMBER_LIST_RSP     群成员列表
+//  36 : CHAT_GROUP                群聊消息
+//  37 : CHAT_GROUP_ACK            群聊回执
+//  38 : GROUP_HISTORY_REQ         群历史请求
+//  39 : GROUP_HISTORY_RSP         群历史响应
+//  40 : GROUP_READ_REQ            群已读
+//  41 : UPLOAD_TICKET_REQ         申请 COS 直传签名
+//  42 : UPLOAD_TICKET_RSP         直传签名 / 上传地址
+// -----------------------------------------------------------------------------
+
+// 外层统一信封（原始 TCP 用）
+message MsgPackage {
+    uint32 msg_type = 1;
+    bytes  body     = 2;
+}
+
+// WebSocket 文本帧信封：{"type": 5, "body": "{\"username\":\"alice\"}"}
+message WebEnvelope {
+    uint32 type = 1;
+    string body = 2;
+}
+
+// ------------------------------- 账号 ---------------------------------------
+message RegisterReq {
+    string username = 1;
+    string password = 2;
+    string nickname = 3;
+}
+
+message RegisterRsp {
+    bool   success = 1;
+    string err_msg = 2;
+    uint64 uid     = 3;
+    string pp_id   = 4;   // 注册时自动生成，例如 pp100001
+}
+
+message LoginReq {
+    string username = 1;
+    string password = 2;
+}
+
+message LoginRsp {
+    bool   success   = 1;
+    string err_msg   = 2;
+    uint64 uid       = 3;
+    string nickname  = 4;
+    string pp_id     = 5;
+    string signature = 6;
+    string avatar_url = 7;
+    // 长期会话令牌（随机 32 字节 hex）。前端存 localStorage，
+    // 刷新页面后用 SESSION_LOGIN_REQ 静默恢复，不再要求重新输密码。
+    string token      = 8;
+}
+
+// ------------------------------- 资料 ---------------------------------------
+message OpResult {
+    bool   success = 1;
+    string err_msg = 2;
+}
+
+message ProfileUpdateReq {
+    string nickname   = 1;
+    string signature  = 2;
+    string pp_id      = 3;   // 留空表示不改
+    string avatar_url = 4;   // 留空表示不改
+}
+
+// ------------------------------- 私聊 ---------------------------------------
+// msg_kind: 1 文本，2 图片，3 文件
+// quote_*：引用消息（微信式「引用回复」）。为空字符串表示未引用。
+message ChatPrivate {
+    uint64 from_uid      = 1;
+    uint64 to_uid        = 2;
+    string content       = 3;
+    int64  timestamp     = 4;
+    uint64 msg_id        = 5;
+    string client_msg_id = 6;
+    string from_nickname = 7;
+    uint32 msg_kind      = 8;
+    string file_url      = 9;
+    string file_name     = 10;
+    uint64 file_size     = 11;
+    string quote_id      = 12;
+    string quote_text    = 13;
+    string quote_nickname = 14;
+    // 已撤回（正文已被服务端清空，客户端显示系统提示）
+    bool   recalled      = 15;
+}
+
+message ChatAck {
+    uint64 msg_id        = 1;
+    string client_msg_id = 2;
+    int64  timestamp     = 3;
+    uint64 to_uid        = 4;
+}
+
+message HeartBeat {
+    int64 server_time = 1;
+}
+
+// --------------------------- 用户 / 在线状态 --------------------------------
+message UserInfo {
+    uint64 uid       = 1;
+    string nickname  = 2;
+    bool   online    = 3;
+    string pp_id     = 4;
+    string signature = 5;
+    bool   is_friend = 6;
+    string avatar_url = 7;
+}
+
+message OnlineUsersPush {
+    repeated UserInfo users = 1;
+}
+
+// --------------------------- 会话列表 ---------------------------------------
+// kind: 1 = 私聊（peer_uid 有效），2 = 群聊（gid 有效）
+message Conversation {
+    uint64 peer_uid     = 1;
+    string nickname     = 2;
+    bool   online       = 3;
+    string last_content = 4;
+    int64  last_time    = 5;
+    uint32 unread       = 6;
+    uint32 kind         = 7;
+    uint64 gid          = 8;
+    string last_sender  = 9;   // 群聊里显示「谁: 内容」
+}
+
+message ConversationListPush {
+    repeated Conversation conversations = 1;
+}
+
+// --------------------------- 私聊历史 ---------------------------------------
+message HistoryReq {
+    uint64 peer_uid  = 1;
+    uint64 before_id = 2;
+    uint32 limit     = 3;
+}
+
+message HistoryRsp {
+    uint64 peer_uid               = 1;
+    repeated ChatPrivate messages = 2;
+    bool   has_more               = 3;
+}
+
+message ReadReq {
+    uint64 peer_uid = 1;
+}
+
+message Typing {
+    uint64 to_uid = 1;
+    bool   typing = 2;
+}
+
+message ErrorPush {
+    int32  code    = 1;
+    string message = 2;
+}
+
+// ------------------------------- 好友 ---------------------------------------
+message FriendSearchReq {
+    string keyword = 1;   // pp号 / 用户名 / 昵称
+}
+
+message FriendSearchRsp {
+    repeated UserInfo users = 1;
+}
+
+message FriendRequestInfo {
+    uint64 request_id    = 1;
+    uint64 from_uid      = 2;
+    string from_nickname = 3;
+    string from_pp_id    = 4;
+    string message       = 5;
+    int64  created_at    = 6;
+    uint32 status        = 7;   // 0 待处理 1 已接受 2 已拒绝
+}
+
+message FriendRequestReq {
+    uint64 to_uid  = 1;
+    string message = 2;
+}
+
+message FriendRequestPush {
+    FriendRequestInfo request = 1;
+}
+
+message FriendRequestListReq {
+}
+
+message FriendRequestListRsp {
+    repeated FriendRequestInfo requests = 1;
+}
+
+message FriendRequestHandleReq {
+    uint64 request_id = 1;
+    bool   accept     = 2;
+}
+
+message FriendListPush {
+    repeated UserInfo friends = 1;
+}
+
+// ------------------------------- 群聊 ---------------------------------------
+message GroupInfo {
+    uint64 gid          = 1;
+    string name         = 2;
+    uint64 owner_uid    = 3;
+    uint32 member_count = 4;
+}
+
+message GroupMemberInfo {
+    uint64 uid      = 1;
+    string nickname = 2;
+    string pp_id    = 3;
+    uint32 role     = 4;   // 1 = 群主，0 = 成员
+    bool   online   = 5;
+}
+
+message GroupCreateReq {
+    string name                = 1;
+    repeated uint64 member_uids = 2;
+}
+
+message GroupCreateRsp {
+    bool      success = 1;
+    string    err_msg = 2;
+    GroupInfo group   = 3;
+}
+
+message GroupListPush {
+    repeated GroupInfo groups = 1;
+}
+
+message GroupInviteReq {
+    uint64 gid                  = 1;
+    repeated uint64 member_uids = 2;
+}
+
+message GroupQuitReq {
+    uint64 gid = 1;
+}
+
+message GroupMemberListReq {
+    uint64 gid = 1;
+}
+
+message GroupMemberListRsp {
+    uint64 gid                    = 1;
+    repeated GroupMemberInfo members = 2;
+}
+
+// kind: 1 = 普通消息，2 = 系统消息（from_uid = 0）
+// msg_kind: 1 文本，2 图片，3 文件
+message ChatGroup {
+    uint64 gid           = 1;
+    uint64 from_uid      = 2;
+    string from_nickname = 3;
+    string content       = 4;
+    int64  timestamp     = 5;
+    uint64 msg_id        = 6;
+    string client_msg_id = 7;
+    uint32 kind          = 8;
+    uint32 msg_kind      = 9;
+    string file_url      = 10;
+    string file_name     = 11;
+    uint64 file_size     = 12;
+    string quote_id      = 13;
+    string quote_text    = 14;
+    string quote_nickname = 15;
+    // 已撤回
+    bool   recalled      = 16;
+}
+
+message ChatGroupAck {
+    uint64 gid           = 1;
+    uint64 msg_id        = 2;
+    string client_msg_id = 3;
+    int64  timestamp     = 4;
+}
+
+message GroupHistoryReq {
+    uint64 gid       = 1;
+    uint64 before_id = 2;
+    uint32 limit     = 3;
+}
+
+message GroupHistoryRsp {
+    uint64 gid                 = 1;
+    repeated ChatGroup messages = 2;
+    bool   has_more            = 3;
+}
+
+message GroupReadReq {
+    uint64 gid = 1;
+}
+
+// --------------------------- COS 直传签名 -----------------------------------
+// 前端先请求票据，再直接 PUT 到 COS，文件不经过本服务器。
+message UploadTicketReq {
+    string filename     = 1;
+    uint64 size         = 2;
+    string content_type = 3;
+}
+
+message UploadTicketRsp {
+    bool   success      = 1;
+    string err_msg      = 2;
+    string upload_url   = 3;   // 预签名 PUT 地址（10 分钟有效）
+    string file_url     = 4;   // 上传成功后的公网访问地址
+    string key          = 5;   // 对象键：chat/YYYYMMDD/xxx.png
+    int64  expires_at   = 6;   // Unix 秒
+}
+
+// --------------------------- 动态（朋友圈 / 微博）---------------------------
+message PostComment {
+    uint64 id         = 1;
+    uint64 post_id    = 2;
+    uint64 uid        = 3;
+    string nickname   = 4;
+    string content    = 5;
+    int64  created_at = 6;
+}
+
+message PostInfo {
+    uint64 id            = 1;
+    uint64 uid           = 2;
+    string nickname      = 3;
+    string signature     = 4;
+    string content       = 5;
+    repeated string images = 6;
+    int64  created_at    = 7;
+    uint32 like_count    = 8;
+    bool   liked         = 9;
+    uint32 comment_count = 10;
+    repeated PostComment comments = 11;
+    bool   mine          = 12;
+    string avatar_url    = 13;
+}
+
+message PostCreateReq {
+    string content           = 1;
+    repeated string images    = 2;
+}
+
+message PostCreateRsp {
+    bool     success = 1;
+    string   err_msg = 2;
+    PostInfo post    = 3;
+}
+
+message FeedReq {
+    uint64 before_id  = 1;
+    uint32 limit      = 2;
+    uint64 author_uid = 3;   // 0 = 好友 + 自己；非 0 = 只看某人的动态
+}
+
+message FeedRsp {
+    repeated PostInfo posts = 1;
+    bool   has_more         = 2;
+    uint64 author_uid       = 3;   // 0 = 主时间线；非 0 = 某人的动态
+}
+
+message PostLikeReq {
+    uint64 post_id = 1;
+    bool   like    = 2;
+}
+
+message PostLikeRsp {
+    bool   success    = 1;
+    string err_msg    = 2;
+    uint64 post_id    = 3;
+    bool   liked      = 4;
+    uint32 like_count = 5;
+}
+
+message CommentCreateReq {
+    uint64 post_id = 1;
+    string content = 2;
+}
+
+message CommentCreateRsp {
+    bool        success       = 1;
+    string      err_msg       = 2;
+    PostComment comment       = 3;
+    uint32      comment_count = 4;
+}
+
+message PostDeleteReq {
+    uint64 post_id = 1;
+}
+
+message PostDeleteRsp {
+    bool   success = 1;
+    string err_msg = 2;
+    uint64 post_id = 3;
+}
+
+// 别人赞/评论了我的动态时推送给我
+message PostNotice {
+    uint32 kind          = 1;   // 1 点赞，2 评论
+    uint64 post_id       = 2;
+    uint64 from_uid      = 3;
+    string from_nickname = 4;
+    string content       = 5;   // 评论内容
+    int64  created_at    = 6;
+    uint32 like_count    = 7;
+    uint32 comment_count = 8;
+}
+
+// =============================================================================
+//  会话恢复：55 SESSION_LOGIN_REQ / 56 SESSION_LOGIN_RSP（复用 LoginRsp）
+//  前端把 LoginRsp.token 存 localStorage，刷新页面后凭它静默登录。
+// =============================================================================
+message SessionLoginReq {
+    string token = 1;
+}
+
+// =============================================================================
+//  OAuth 2.0（HTTP 专用，不占用 WebSocket 消息类型编号）
+//
+//  pp 作为统一身份提供方（IdP），校捷通等站外应用用「授权码模式」接入：
+//    1) 浏览器 GET  /oauth/authorize?client_id=&redirect_uri=&state=&response_type=code
+//    2) 授权页确认后 POST /oauth/authorize（Authorization: Bearer <pp会话令牌>）
+//    3) 校捷通后端 POST /oauth/token（换 access_token，服务端对服务端）
+//    4) 校捷通后端 GET  /oauth/userinfo（Authorization: Bearer <access_token>）
+//
+//  安全要点：
+//    · code 一次性、60 秒过期、绑定 client_id + uid + redirect_uri
+//    · client_secret 只在校捷通服务端持有，不经浏览器
+//    · redirect_uri 必须在 oauth_clients.redirect_uris 白名单里精确匹配
+//    · state 由校捷通生成并校验，防 CSRF
+// =============================================================================
+message OAuthLoginReq {
+    string username = 1;   // 用户名 / pp 号
+    string password = 2;
+}
+
+message OAuthLoginRsp {
+    bool   success    = 1;
+    string err_msg    = 2;
+    string token      = 3;   // pp 会话令牌（浏览器 localStorage 保存）
+    uint64 uid        = 4;
+    string nickname   = 5;
+    string pp_id      = 6;
+    string avatar_url = 7;
+}
+
+message OAuthAuthorizeReq {
+    string client_id    = 1;
+    string redirect_uri = 2;
+    string state        = 3;
+    string scope        = 4;   // 授权范围，当前仅支持 profile（头像/昵称/pp 号）
+}
+
+message OAuthAuthorizeRsp {
+    bool   success  = 1;
+    string err_msg  = 2;
+    string redirect = 3;   // 已经拼好 code & state 的回跳地址
+}
+
+message OAuthTokenReq {
+    string grant_type    = 1;   // 固定 authorization_code
+    string code          = 2;
+    string client_id     = 3;
+    string client_secret = 4;
+    string redirect_uri  = 5;
+}
+
+message OAuthTokenRsp {
+    bool   success      = 1;
+    string err_msg      = 2;
+    string access_token = 3;
+    string token_type   = 4;   // Bearer
+    int64  expires_in   = 5;
+    uint64 uid          = 6;
+    string pp_id        = 7;
+    string nickname     = 8;
+    string avatar_url   = 9;
+}
+
+message OAuthUserInfoRsp {
+    bool   success    = 1;
+    string err_msg    = 2;
+    uint64 uid        = 3;
+    string pp_id      = 4;
+    string nickname   = 5;
+    string avatar_url = 6;
+    string signature  = 7;
+}
+
+// --------------------------- 授权管理（HTTP 专用）---------------------------
+// 用户在 pp 里查看「哪些应用拿到过我的授权」，并可一键解除。
+// 解除 = 删除该 uid + client_id 的 access_token，已发出去的令牌立即失效。
+message OAuthGrantInfo {
+    string client_id          = 1;
+    string name               = 2;   // 应用显示名，如「校捷通」
+    int64  last_authorized_at = 3;   // 最近一次授权时间（unix 秒）
+    uint32 active_tokens      = 4;   // 尚未过期的 access_token 数量
+    string scope              = 5;   // 授权范围（空格分隔，如 profile）
+}
+
+message OAuthGrantListRsp {
+    bool                  success = 1;
+    string                err_msg = 2;
+    repeated OAuthGrantInfo grants = 3;
+}
+
+message OAuthGrantRevokeReq {
+    string client_id = 1;
+}
+
+// 接入方服务端调用：撤销某个 pp 用户对本应用的授权
+// （校捷通解绑 pp 时用，避免「账号已解绑但授权记录还在」）
+message OAuthRevokeReq {
+    string client_id     = 1;
+    string client_secret = 2;
+    uint64 uid           = 3;
+}
+
+message OAuthGrantRevokeRsp {
+    bool   success = 1;
+    string err_msg = 2;
+    uint32 revoked = 3;   // 实际删除的令牌数量
+}
+
+// ------------------------------- 收藏 ---------------------------------------
+// 收藏是「按用户保存消息副本」，与消息本体解耦：原消息被删也不影响收藏夹。
+// msg_id 用字符串，兼容私聊/群聊（服务端只做去重键）。
+message FavoriteItem {
+    string msg_id        = 1;
+    uint32 msg_kind      = 2;   // 1 文本 2 图片 3 文件
+    string content       = 3;
+    string file_url      = 4;
+    string file_name     = 5;
+    uint64 file_size     = 6;
+    string from_nickname = 7;
+    int64  timestamp     = 8;   // 原消息时间
+    int64  created_at    = 9;   // 收藏时间
+}
+
+message FavoriteAddReq {
+    string msg_id        = 1;
+    uint32 msg_kind      = 2;
+    string content       = 3;
+    string file_url      = 4;
+    string file_name     = 5;
+    uint64 file_size     = 6;
+    string from_nickname = 7;
+    int64  timestamp     = 8;
+}
+
+message FavoriteAddRsp {
+    bool   success = 1;
+    string err_msg = 2;
+}
+
+message FavoriteListReq {}
+
+message FavoriteListRsp {
+    repeated FavoriteItem items = 1;
+}
+
+message FavoriteRemoveReq {
+    string msg_id = 1;
+}
+
+message FavoriteRemoveRsp {
+    bool   success = 1;
+    string err_msg = 2;
+}
+
+// ------------------------------- 撤回 ---------------------------------------
+// 只能撤回自己发送的消息，且不超过 2 分钟（与微信一致）。
+// 撤回后服务端清空正文与附件，并向对方（私聊）或全群（群聊）推送 RecallPush。
+message RecallReq {
+    uint64 msg_id = 1;
+}
+
+message RecallRsp {
+    bool   success = 1;
+    string err_msg = 2;
+    uint64 msg_id  = 3;
+}
+
+// 服务端 → 客户端：某条消息被撤回
+message RecallPush {
+    uint64 msg_id        = 1;
+    uint64 from_uid      = 2;   // 原消息发送者
+    uint64 peer_uid      = 3;   // 私聊：消息接收方 uid
+    uint64 gid           = 4;   // 群聊：群 id
+    string from_nickname = 5;
+}
+
+// ------------------------------- 拍一拍 -------------------------------------
+// 微信式「拍一拍」：双击对方头像发起。服务端把它存成一条 msg_kind = 4 的消息，
+// 因此**同样可以被撤回**（撤回走 RecallReq，逻辑与普通消息完全一致）。
+message PatReq {
+    // 私聊：拍 peer_uid；群聊：填 gid + target_uid
+    uint64 peer_uid   = 1;
+    uint64 gid        = 2;
+    uint64 target_uid = 3;
+}
+
+message PatRsp {
+    bool   success   = 1;
+    string err_msg   = 2;
+    uint64 msg_id    = 3;
+    int64  timestamp = 4;
+    string target_nickname = 5;
+    // 回显请求里的定位信息，前端据此把消息插进正确的会话
+    uint64 peer_uid   = 6;
+    uint64 gid        = 7;
+    uint64 target_uid = 8;
+}
+
+// 服务端 → 客户端：有人拍了谁
+message PatPush {
+    uint64 msg_id          = 1;
+    uint64 from_uid        = 2;
+    string from_nickname   = 3;
+    uint64 peer_uid        = 4;   // 私聊：消息接收方 uid
+    uint64 gid             = 5;   // 群聊：群 id
+    uint64 target_uid      = 6;   // 群聊：被拍的人
+    string target_nickname = 7;
+    int64  timestamp       = 8;
+}

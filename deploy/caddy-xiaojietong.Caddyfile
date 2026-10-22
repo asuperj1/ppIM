@@ -1,0 +1,61 @@
+# 校捷通 · 生产配置（2026-10-19 更新：前端静态资源禁用强缓存）
+# 前端静态页 + 后端 API 同源提供：浏览器无需 CORS，也无需配置 BASE_URL。
+{
+	acme_ca https://acme-v02.api.letsencrypt.org/directory
+	email admin@xiaojietong.online
+}
+
+xiaojietong.online, www.xiaojietong.online {
+	# xjt-access-log
+	log {
+		output stdout
+		format console
+	}
+	encode gzip
+
+	# 后端 API —— flush_interval -1 是 SSE 逐字输出必需
+	handle /api/* {
+		reverse_proxy 127.0.0.1:8080 {
+			flush_interval -1
+		}
+	}
+
+	# 前端静态页（H5）
+	handle {
+		root * /opt/xiaojietong/web
+		try_files {path} /index.html
+		file_server
+		# 每次回源校验（ETag）：修掉「部署了新 JS 但浏览器仍执行旧缓存」的问题
+		header {
+			Cache-Control "no-cache, must-revalidate"
+		}
+	}
+
+	header {
+		Strict-Transport-Security "max-age=31536000; includeSubDomains"
+		X-Content-Type-Options "nosniff"
+		-Server
+	}
+}
+
+pp.xiaojietong.online {
+	log {
+		output stdout
+		format console
+	}
+	encode gzip
+
+	# 语音转写：pp 不重复部署 ASR，直接复用校捷通那一份（/api/v1/voice/transcribe）。
+	# 同源反代 => 前端零 CORS；XJT_ACCESS_TOKEN 只在服务器注入，前端拿不到。
+	handle /voice-api/* {
+		uri strip_prefix /voice-api
+		reverse_proxy 127.0.0.1:8080 {
+			header_up X-Access-Token {env.XJT_VOICE_TOKEN}
+		}
+	}
+
+	# pp 服务自身已返回 Cache-Control: no-cache, no-store, must-revalidate，此处不再重复设置
+	handle {
+		reverse_proxy 127.0.0.1:18080
+	}
+}

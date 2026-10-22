@@ -1,0 +1,43 @@
+# =============================================================================
+#  deploy/pp.service
+#  systemd 常驻配置（Linux 服务器）
+#
+#  安装：
+#    sudo mkdir -p /opt/pp
+#    # 把代码 / 构建产物放到 /opt/pp
+#    sudo cp deploy/pp.service /etc/systemd/system/
+#    sudo systemctl daemon-reload
+#    sudo systemctl enable --now pp
+#    sudo systemctl status pp
+# =============================================================================
+[Unit]
+Description=pp IM server (WebSocket + TCP)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+# 用普通用户运行（代码与 data 目录都属于该用户）；如服务器账号不同请修改
+User=ubuntu
+Group=ubuntu
+WorkingDirectory=/opt/pp
+EnvironmentFile=-/opt/pp/config/cos.env
+# OAuth 接入方配置（PP_OAUTH_CLIENT_ID / SECRET / REDIRECT_URIS）
+EnvironmentFile=-/opt/pp/config/oauth.env
+ExecStart=/opt/pp/build-linux/bin/im_server \
+    --http-port 18080 \
+    --tcp-port 19000 \
+    --web-root /opt/pp/web \
+    --db /opt/pp/data/im.db \
+    --domain pp.xiaojietong.online
+
+Restart=always
+RestartSec=3
+LimitNOFILE=65535
+
+# 基础加固
+NoNewPrivileges=true
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target

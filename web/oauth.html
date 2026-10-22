@@ -1,0 +1,369 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex, nofollow">
+<title>使用 pp 账号登录</title>
+<style>
+  :root {
+    --bg: #f2f3f7;
+    --card: #ffffff;
+    --text: #16181d;
+    --text-2: #6b7280;
+    --line: #e8e9ee;
+    --brand: #4e6ef2;
+    --brand-2: #6b4ef2;
+    --danger: #e5484d;
+    --radius: 18px;
+  }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; }
+  body {
+    margin: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+    background:
+      radial-gradient(1200px 600px at 15% -10%, #dfe6ff 0%, transparent 55%),
+      radial-gradient(900px 500px at 110% 110%, #e8e0ff 0%, transparent 50%),
+      var(--bg);
+    font: 15px/1.55 -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC",
+          "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+    color: var(--text);
+    -webkit-font-smoothing: antialiased;
+  }
+  .card {
+    width: 100%;
+    max-width: 380px;
+    background: var(--card);
+    border-radius: var(--radius);
+    padding: 30px 26px 24px;
+    box-shadow: 0 1px 2px rgba(16, 24, 40, .04), 0 18px 48px -18px rgba(16, 24, 40, .22);
+  }
+  .brand {
+    width: 44px; height: 44px;
+    border-radius: 13px;
+    display: grid; place-items: center;
+    background: linear-gradient(135deg, var(--brand), var(--brand-2));
+    color: #fff; font-weight: 800; font-size: 18px; letter-spacing: -.5px;
+    margin-bottom: 18px;
+  }
+  h1 { margin: 0 0 6px; font-size: 20px; font-weight: 700; letter-spacing: -.2px; }
+  .sub { margin: 0 0 20px; color: var(--text-2); font-size: 13.5px; }
+  .sub b { color: var(--text); font-weight: 600; }
+
+  .error {
+    margin: 0 0 14px;
+    padding: 10px 12px;
+    border-radius: 10px;
+    background: #fdecec;
+    color: var(--danger);
+    font-size: 13px;
+  }
+
+  .user {
+    display: flex; align-items: center; gap: 12px;
+    padding: 12px;
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    margin-bottom: 16px;
+  }
+  .user img {
+    width: 44px; height: 44px; border-radius: 50%; object-fit: cover;
+    background: #eef1ff; flex: none;
+  }
+  .user .name { font-weight: 600; font-size: 15px; }
+  .user .ppid { color: var(--text-2); font-size: 12.5px; }
+
+  .scopes {
+    list-style: none; margin: 0 0 18px; padding: 0;
+    color: var(--text-2); font-size: 13px;
+  }
+  .scopes li { position: relative; padding-left: 20px; margin: 6px 0; }
+  .scopes li::before {
+    content: ""; position: absolute; left: 2px; top: 7px;
+    width: 6px; height: 6px; border-radius: 50%;
+    background: linear-gradient(135deg, var(--brand), var(--brand-2));
+  }
+
+  label { display: block; margin-bottom: 12px; font-size: 13px; color: var(--text-2); }
+  input {
+    width: 100%; margin-top: 6px;
+    padding: 12px 13px;
+    border: 1px solid var(--line);
+    border-radius: 11px;
+    font: inherit; color: var(--text);
+    background: #fbfbfd;
+    outline: none;
+    transition: border-color .15s, background .15s, box-shadow .15s;
+  }
+  input:focus {
+    background: #fff;
+    border-color: #b9c4ff;
+    box-shadow: 0 0 0 3px rgba(78, 110, 242, .13);
+  }
+
+  button {
+    width: 100%;
+    padding: 12px 16px;
+    border: 0; border-radius: 11px;
+    font: inherit; font-weight: 600;
+    cursor: pointer;
+    transition: transform .06s, filter .15s, background .15s;
+  }
+  button:active { transform: translateY(1px); }
+  button[disabled] { opacity: .6; cursor: default; }
+  .primary {
+    background: linear-gradient(135deg, var(--brand), var(--brand-2));
+    color: #fff;
+    box-shadow: 0 8px 20px -10px rgba(78, 110, 242, .8);
+  }
+  .primary:hover { filter: brightness(1.05); }
+  .ghost {
+    margin-top: 10px;
+    background: transparent; color: var(--text-2);
+    font-weight: 500;
+  }
+  .ghost:hover { color: var(--text); }
+
+  .foot {
+    margin-top: 18px;
+    padding-top: 14px;
+    border-top: 1px solid var(--line);
+    color: #9aa1ad;
+    font-size: 12px;
+    text-align: center;
+  }
+</style>
+</head>
+<body>
+<div class="card">
+  <div class="brand">pp</div>
+  <h1 id="title">使用 pp 账号登录</h1>
+  <p class="sub" id="subtitle">正在确认应用信息…</p>
+  <div class="error" id="error" hidden></div>
+
+  <!-- 已登录：确认授权 -->
+  <section id="consent" hidden>
+    <div class="user">
+      <img id="avatar" alt="" referrerpolicy="no-referrer">
+      <div>
+        <div class="name" id="nickname">—</div>
+        <div class="ppid" id="ppid">—</div>
+      </div>
+    </div>
+    <ul class="scopes">
+      <li>获取你的头像、昵称和 pp 号</li>
+      <li>不会读取你的聊天记录与动态内容</li>
+      <li>你可以随时在 pp 里解除授权</li>
+    </ul>
+    <button class="primary" id="btn-allow" type="button">同意并继续</button>
+    <button class="ghost" id="btn-switch" type="button">使用其他账号</button>
+    <button class="ghost" id="btn-deny" type="button">取消授权</button>
+  </section>
+
+  <!-- 未登录：账号密码 -->
+  <form id="login" hidden autocomplete="on">
+    <label>账号
+      <input id="account" name="username" autocomplete="username"
+             placeholder="用户名，或 pp 号（如 pp100001）" required>
+    </label>
+    <label>密码
+      <input id="password" name="password" type="password"
+             autocomplete="current-password" placeholder="pp 登录密码" required>
+    </label>
+    <button class="primary" id="btn-login" type="submit">登录并继续</button>
+  </form>
+
+  <div class="foot">登录即表示同意由 pp 向该应用提供上述信息</div>
+</div>
+
+<script>
+(function () {
+  'use strict';
+
+  var TOKEN_KEY = 'pp_token';
+  var params = new URLSearchParams(location.search);
+  var clientId = params.get('client_id') || '';
+  var redirectUri = params.get('redirect_uri') || '';
+  var state = params.get('state') || '';
+  var scope = params.get('scope') || 'profile';
+
+  var $ = function (id) { return document.getElementById(id); };
+  var errorBox = $('error');
+  var consentBox = $('consent');
+  var loginBox = $('login');
+  var subtitle = $('subtitle');
+
+  function showError(message) {
+    errorBox.textContent = message;
+    errorBox.hidden = false;
+  }
+  function clearError() {
+    errorBox.hidden = true;
+  }
+
+  // 统一请求：成功返回 { ok, data }，失败返回 { ok:false, message }
+  function api(path, options) {
+    options = options || {};
+    var headers = { Accept: 'application/json' };
+    var init = { method: options.method || 'GET', headers: headers };
+
+    if (options.token) headers.Authorization = 'Bearer ' + options.token;
+    if (options.body !== undefined) {
+      headers['Content-Type'] = 'application/json';
+      init.body = JSON.stringify(options.body);
+    }
+
+    return fetch(path, init).then(function (res) {
+      return res.json().catch(function () { return {}; }).then(function (data) {
+        if (res.ok && data && data.success) return { ok: true, data: data };
+        return {
+          ok: false,
+          message: (data && (data.errMsg || data.message)) || ('请求失败（' + res.status + '）')
+        };
+      });
+    }).catch(function () {
+      return { ok: false, message: '网络异常，请稍后重试' };
+    });
+  }
+
+  function avatarFor(url) {
+    if (!url) {
+      return 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(
+        '<svg xmlns="http://www.w3.org/2000/svg" width="88" height="88">' +
+        '<rect width="88" height="88" rx="44" fill="#eef1ff"/>' +
+        '<text x="44" y="56" font-size="34" text-anchor="middle" fill="#4e6ef2">p</text></svg>'
+      );
+    }
+    return url;
+  }
+
+  function showConsent(me) {
+    clearError();
+    loginBox.hidden = true;
+    consentBox.hidden = false;
+    subtitle.innerHTML = '应用 <b>校捷通</b> 请求获取你的以下信息';
+    $('nickname').textContent = me.nickname || 'pp 用户';
+    $('ppid').textContent = me.ppId || '';
+    $('avatar').src = avatarFor(me.avatarUrl);
+    $('avatar').onerror = function () { $('avatar').src = avatarFor(''); };
+    document.title = '授权登录 · pp';
+  }
+
+  function showLogin() {
+    clearError();
+    consentBox.hidden = true;
+    loginBox.hidden = false;
+    subtitle.innerHTML = '请先登录 pp 账号，再授权 <b>校捷通</b>';
+    $('account').focus();
+  }
+
+  function setBusy(button, busy, label) {
+    button.disabled = busy;
+    if (label) button.textContent = label;
+  }
+
+  // 有本地令牌就直接校验，免二次输入密码
+  function boot() {
+    if (!clientId || !redirectUri) {
+      subtitle.textContent = '授权参数不完整';
+      showError('缺少 client_id 或 redirect_uri，请回到应用重新发起登录。');
+      return;
+    }
+
+    var token = localStorage.getItem(TOKEN_KEY);
+    if (!token) {
+      showLogin();
+      return;
+    }
+
+    api('/api/session', { token: token }).then(function (r) {
+      if (r.ok) showConsent(r.data);
+      else {
+        localStorage.removeItem(TOKEN_KEY);
+        showLogin();
+      }
+    });
+  }
+
+  $('btn-login').addEventListener('click', function () { /* 由 submit 处理 */ });
+
+  loginBox.addEventListener('submit', function (event) {
+    event.preventDefault();
+    clearError();
+
+    var account = $('account').value.trim();
+    var password = $('password').value;
+    if (!account || !password) {
+      showError('请输入账号和密码');
+      return;
+    }
+
+    var button = $('btn-login');
+    setBusy(button, true, '登录中…');
+
+    api('/api/login', {
+      method: 'POST',
+      body: { username: account, password: password }
+    }).then(function (r) {
+      setBusy(button, false, '登录并继续');
+      if (!r.ok) {
+        showError(r.message);
+        return;
+      }
+      localStorage.setItem(TOKEN_KEY, r.data.token || '');
+      showConsent(r.data);
+    });
+  });
+
+  $('btn-allow').addEventListener('click', function () {
+    clearError();
+    var token = localStorage.getItem(TOKEN_KEY);
+    if (!token) {
+      showLogin();
+      return;
+    }
+
+    var button = $('btn-allow');
+    setBusy(button, true, '正在授权…');
+
+    api('/oauth/authorize', {
+      method: 'POST',
+      token: token,
+      body: { client_id: clientId, redirect_uri: redirectUri, state: state, scope: scope }
+    }).then(function (r) {
+      if (!r.ok) {
+        setBusy(button, false, '同意并继续');
+        showError(r.message);
+        return;
+      }
+      location.replace(r.data.redirect);
+    });
+  });
+
+  $('btn-switch').addEventListener('click', function () {
+    localStorage.removeItem(TOKEN_KEY);
+    $('password').value = '';
+    showLogin();
+  });
+
+  // 取消授权：按 OAuth 规范带 error=access_denied 回跳，
+  // 接入方（校捷通）会提示「已取消授权」并停在登录页。
+  $('btn-deny').addEventListener('click', function () {
+    if (!redirectUri) {
+      location.href = '/';
+      return;
+    }
+    var url = redirectUri + (redirectUri.indexOf('?') === -1 ? '?' : '&') + 'error=access_denied';
+    if (state) url += '&state=' + encodeURIComponent(state);
+    location.replace(url);
+  });
+
+  boot();
+})();
+</script>
+</body>
+</html>

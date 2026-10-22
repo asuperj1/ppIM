@@ -1,0 +1,38 @@
+# ---------- 构建产物 ----------
+build/
+build-linux/
+out/
+bin/
+vcpkg_installed/
+vcpkg_installed_linux/
+
+# ---------- IDE ----------
+.vs/
+.vscode/*.log
+*.user
+*.suo
+
+# ---------- 运行期数据 ----------
+*.db
+*.db-wal
+*.db-shm
+*.sqlite
+*.sqlite3
+*.log
+
+# ---------- 编译中间件 ----------
+*.obj
+*.pdb
+*.ilk
+*.exe
+*.lib
+
+# ---------- 临时打包 / 本地环境 ----------
+*.tar.gz
+*.tar
+*.zip
+.env
+.env.*
+!.env.example
+config/cos.env
+config/oauth.env

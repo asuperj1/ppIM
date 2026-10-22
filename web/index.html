@@ -1,0 +1,760 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <meta name="theme-color" content="#2e2e2e">
+    <title>pp · 和朋友保持连接</title>
+    <link rel="icon" href="data:,">
+    <link rel="stylesheet" href="css/app.css">
+</head>
+<body>
+
+<!-- =========================================================================
+     登录 / 注册
+     ========================================================================= -->
+<section id="auth-view" class="auth">
+    <div class="auth-brand">
+        <div class="brand-logo">
+            <span class="brand-mark">pp</span>
+            <span class="brand-name">pp</span>
+        </div>
+        <h1 class="brand-title">像面对面一样聊天</h1>
+        <p class="brand-desc">
+            基于 C++17 + Asio + Protobuf + SQLite 的即时通讯服务，<br>
+            浏览器打开即可使用，消息实时到达、历史永久保存。
+        </p>
+        <ul class="brand-points">
+            <li><span>⚡</span> WebSocket 长连接，消息即时推送</li>
+            <li><span>🔍</span> 用 pp 号搜索、加好友、收发好友申请</li>
+            <li><span>👥</span> 群聊、未读计数、在线状态、正在输入</li>
+        </ul>
+        <div class="brand-footer">pp · 一个可以讲清楚原理的 IM 项目</div>
+    </div>
+
+    <div class="auth-panel">
+        <div class="auth-card">
+            <div class="auth-tabs">
+                <button class="auth-tab active" data-auth-tab="login">登录</button>
+                <button class="auth-tab" data-auth-tab="register">注册</button>
+            </div>
+
+            <form id="login-form" class="auth-form" autocomplete="on">
+                <label class="field">
+                    <span class="field-label">用户名 / pp 号</span>
+                    <input id="login-username" name="username" type="text"
+                           placeholder="用户名，或 pp 号（如 pp100001）" autocomplete="username" required>
+                </label>
+                <label class="field">
+                    <span class="field-label">密码</span>
+                    <input id="login-password" name="password" type="password"
+                           placeholder="请输入密码" autocomplete="current-password" required>
+                </label>
+                <p class="form-error" id="login-error" hidden></p>
+                <button class="primary-btn" type="submit" id="login-submit">登 录</button>
+                <p class="form-hint">还没有账号？<a href="#" data-auth-tab="register">立即注册</a></p>
+            </form>
+
+            <form id="register-form" class="auth-form" autocomplete="off" hidden>
+                <label class="field">
+                    <span class="field-label">用户名</span>
+                    <input id="register-username" name="username" type="text"
+                           placeholder="3~20 位字母、数字或下划线" autocomplete="username" required>
+                </label>
+                <label class="field">
+                    <span class="field-label">昵称</span>
+                    <input id="register-nickname" name="nickname" type="text"
+                           placeholder="别人看到的名字" required>
+                </label>
+                <label class="field">
+                    <span class="field-label">密码</span>
+                    <input id="register-password" name="password" type="password"
+                           placeholder="至少 6 位" autocomplete="new-password" required>
+                </label>
+                <label class="field">
+                    <span class="field-label">确认密码</span>
+                    <input id="register-password2" name="password2" type="password"
+                           placeholder="再输入一次密码" autocomplete="new-password" required>
+                </label>
+                <p class="form-hint" style="text-align:left;margin:-4px 0 0;">
+                    注册后会自动生成唯一 pp 号（如 pp100001），可随时在资料里修改。
+                </p>
+                <p class="form-error" id="register-error" hidden></p>
+                <button class="primary-btn" type="submit" id="register-submit">创建账号</button>
+                <p class="form-hint">已有账号？<a href="#" data-auth-tab="login">返回登录</a></p>
+            </form>
+        </div>
+    </div>
+</section>
+
+<!-- =========================================================================
+     主界面
+     ========================================================================= -->
+<section id="app-view" class="app" hidden>
+    <!-- 最左侧导航（移动端自动变为底部 tab） -->
+    <nav class="rail">
+        <button class="rail-btn active" data-view="chats" title="聊天">
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M21 11.5a8.4 8.4 0 0 1-8.5 8.5 9 9 0 0 1-3.8-.8L3 21l1.8-5.1A8.4 8.4 0 0 1 12.5 3 8.4 8.4 0 0 1 21 11.5z"/>
+            </svg>
+            <span class="rail-badge" id="rail-unread" hidden>0</span>
+        </button>
+
+        <button class="rail-btn" data-view="contacts" title="联系人">
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/>
+                <circle cx="9" cy="7" r="4"/>
+                <path d="M22 21v-2a4 4 0 0 0-3-3.87"/>
+                <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+            </svg>
+        </button>
+
+        <button class="rail-btn" data-view="feed" title="动态">
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+                <rect x="3.2" y="4" width="17.6" height="16" rx="3"/>
+                <line x1="7" y1="9" x2="17" y2="9"/>
+                <line x1="7" y1="13" x2="17" y2="13"/>
+                <line x1="7" y1="17" x2="13" y2="17"/>
+            </svg>
+            <span class="rail-badge" id="rail-feed-badge" hidden>0</span>
+        </button>
+
+        <button class="rail-btn" data-view="favorites" title="收藏夹">
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M6.5 3.5h11A1.5 1.5 0 0 1 19 5v16l-7-4.2L5 21V5a1.5 1.5 0 0 1 1.5-1.5z"/>
+            </svg>
+        </button>
+
+        <button class="rail-btn" data-view="me" title="我">
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+                <circle cx="12" cy="8" r="4.2"/>
+                <path d="M4.6 20.4c0-4 3.4-6.4 7.4-6.4s7.4 2.4 7.4 6.4"/>
+            </svg>
+        </button>
+
+        <div class="rail-spacer"></div>
+
+        <button class="rail-btn" id="btn-logout" title="退出登录" hidden>
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>
+                <polyline points="16 17 21 12 16 7"/>
+                <line x1="21" y1="12" x2="9" y2="12"/>
+            </svg>
+        </button>
+    </nav>
+
+    <!-- 会话 / 通讯录列表 -->
+    <aside class="sidebar">
+        <header class="sidebar-head">
+            <h2 class="sidebar-title" id="sidebar-title">聊天</h2>
+            <button class="icon-btn" id="btn-new-chat" title="发起聊天">
+                <svg viewBox="0 0 24 24" aria-hidden="true">
+                    <line x1="12" y1="5" x2="12" y2="19"/>
+                    <line x1="5" y1="12" x2="19" y2="12"/>
+                </svg>
+            </button>
+        </header>
+
+        <div class="search-box">
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+                <circle cx="11" cy="11" r="7"/>
+                <line x1="16.5" y1="16.5" x2="21" y2="21"/>
+            </svg>
+            <input id="search-input" type="text" placeholder="搜索联系人 / 聊天记录">
+        </div>
+
+        <div class="list-scroll">
+            <div id="conv-list" class="conv-list"></div>
+            <div class="list-empty" id="list-empty" hidden>
+                <div class="list-empty-icon">💬</div>
+                <p id="list-empty-text">还没有聊天</p>
+            </div>
+        </div>
+
+        <footer class="sidebar-foot">
+            <span class="conn-dot" id="conn-dot"></span>
+            <span id="conn-text">连接中…</span>
+        </footer>
+    </aside>
+
+    <!-- 聊天区 -->
+    <main class="chat" id="chat">
+        <div class="chat-empty" id="chat-empty">
+            <div class="chat-empty-inner">
+                <div class="chat-empty-logo">pp</div>
+                <h3>pp 网页版</h3>
+                <p>从左侧选择一位联系人，开始聊天</p>
+            </div>
+        </div>
+
+        <div class="chat-pane" id="chat-pane" hidden>
+            <header class="chat-head">
+                <button class="icon-btn back-btn" id="btn-back" title="返回">
+                    <svg viewBox="0 0 24 24" aria-hidden="true">
+                        <polyline points="15 18 9 12 15 6"/>
+                    </svg>
+                </button>
+                <div class="chat-head-main">
+                    <div class="chat-head-name">
+                        <span id="chat-name">—</span>
+                        <span class="presence-dot offline" id="chat-presence"></span>
+                    </div>
+                    <div class="chat-head-sub" id="chat-sub">离线</div>
+                </div>
+                <div class="chat-head-actions">
+                    <span class="peer-uid" id="chat-uid"></span>
+                    <button class="icon-btn" id="btn-chat-info" title="聊天信息" hidden>⋯</button>
+                </div>
+            </header>
+
+            <div class="messages" id="messages">
+                <div class="load-more" id="load-more" hidden>
+                    <button class="ghost-btn" id="btn-load-more">查看更早的消息</button>
+                </div>
+                <div class="message-list" id="message-list"></div>
+                <div class="typing-indicator" id="typing-indicator" hidden>
+                    <span class="typing-dots"><i></i><i></i><i></i></span>
+                    <span id="typing-text">对方正在输入…</span>
+                </div>
+            </div>
+
+            <footer class="composer" id="composer">
+                <!-- 第一行：更多(+) / 语音 / 输入 / 表情 / 发送（微信式） -->
+                <div class="composer-tools">
+                    <button class="icon-btn" id="btn-more" title="更多功能" aria-label="更多功能">
+                        <svg viewBox="0 0 24 24" aria-hidden="true">
+                            <circle cx="12" cy="12" r="9"/>
+                            <line x1="12" y1="8.2" x2="12" y2="15.8"/>
+                            <line x1="8.2" y1="12" x2="15.8" y2="12"/>
+                        </svg>
+                    </button>
+                    <button class="icon-btn" id="btn-voice-toggle" title="切换语音输入" aria-label="语音输入">
+                        <!-- 语音模式：显示麦克风；已切到语音时改为键盘图标（CSS 切换，不用 emoji） -->
+                        <svg class="ico-mic" viewBox="0 0 24 24" aria-hidden="true">
+                            <rect x="9" y="2.6" width="6" height="11" rx="3"/>
+                            <path d="M5 11.4a7 7 0 0 0 14 0"/>
+                            <line x1="12" y1="18.4" x2="12" y2="21.6"/>
+                            <line x1="8.6" y1="21.6" x2="15.4" y2="21.6"/>
+                        </svg>
+                        <svg class="ico-keyboard" viewBox="0 0 24 24" aria-hidden="true">
+                            <rect x="2.4" y="6.4" width="19.2" height="11.2" rx="2.4"/>
+                            <line x1="6.4" y1="10.2" x2="7.6" y2="10.2"/>
+                            <line x1="10.2" y1="10.2" x2="11.4" y2="10.2"/>
+                            <line x1="14" y1="10.2" x2="15.2" y2="10.2"/>
+                            <line x1="17.8" y1="10.2" x2="19" y2="10.2"/>
+                            <line x1="6.4" y1="13.8" x2="17.6" y2="13.8"/>
+                        </svg>
+                    </button>
+                </div>
+                <input type="file" id="file-input" hidden
+                       accept="image/png,image/jpeg,image/gif,image/webp,application/pdf,text/plain,text/markdown,application/zip,.doc,.docx,.xls,.xlsx,.ppt,.pptx">
+                <textarea id="message-input" rows="1"></textarea>
+                <!-- 语音模式：按住说话（微信式，上滑取消） -->
+                <button class="voice-hold" id="btn-voice-hold" hidden>按住 说话</button>
+                <div class="composer-right">
+                    <button class="icon-btn" id="btn-emoji" title="表情" aria-label="表情">
+                        <svg viewBox="0 0 24 24" aria-hidden="true">
+                            <circle cx="12" cy="12" r="9"/>
+                            <path d="M8.4 14.2a4.2 4.2 0 0 0 7.2 0"/>
+                            <circle cx="9.2" cy="9.8" r="1"/>
+                            <circle cx="14.8" cy="9.8" r="1"/>
+                        </svg>
+                    </button>
+                    <button class="send-btn" id="btn-send">发送</button>
+                </div>
+
+                <!-- 引用条：引用某条消息时显示在输入框上方 -->
+                <div class="quote-bar" id="quote-bar" hidden>
+                    <div class="quote-bar-body">
+                        <span class="quote-bar-name" id="quote-bar-name"></span>
+                        <span class="quote-bar-text" id="quote-bar-text"></span>
+                    </div>
+                    <button class="quote-bar-close" id="quote-bar-close" title="取消引用">×</button>
+                </div>
+
+                <div class="emoji-panel" id="emoji-panel" hidden>
+                    <div class="emoji-tabs">
+                        <button class="emoji-tab active" type="button" data-tab="emoji">表情</button>
+                        <button class="emoji-tab" type="button" data-tab="custom">收藏的表情</button>
+                    </div>
+                    <div class="emoji-grid" id="emoji-grid"></div>
+                </div>
+
+                <!-- 更多功能面板：展开时把输入栏整体顶上去（微信 + 面板） -->
+                <div class="more-panel" id="more-panel" hidden>
+                    <button class="more-item" data-more="image">
+                        <span class="more-ico">
+                            <svg viewBox="0 0 24 24" aria-hidden="true">
+                                <rect x="3" y="4.5" width="18" height="15" rx="3"/>
+                                <circle cx="8.6" cy="9.6" r="1.6"/>
+                                <path d="M4 17.4l5-5 3.4 3.4 3-3 4.6 4.6"/>
+                            </svg>
+                        </span>
+                        <span class="more-label">相册</span>
+                    </button>
+                    <button class="more-item" data-more="file">
+                        <span class="more-ico">
+                            <svg viewBox="0 0 24 24" aria-hidden="true">
+                                <path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/>
+                                <polyline points="14 3 14 8 19 8"/>
+                                <line x1="9" y1="13" x2="15" y2="13"/>
+                                <line x1="9" y1="17" x2="13" y2="17"/>
+                            </svg>
+                        </span>
+                        <span class="more-label">文件</span>
+                    </button>
+                    <button class="more-item" data-more="favorites">
+                        <span class="more-ico">
+                            <svg viewBox="0 0 24 24" aria-hidden="true">
+                                <path d="M6.5 3.5h11a1.5 1.5 0 0 1 1.5 1.5v16l-7-4.2-7 4.2V5a1.5 1.5 0 0 1 1.5-1.5z"/>
+                            </svg>
+                        </span>
+                        <span class="more-label">收藏</span>
+                    </button>
+                    <button class="more-item" data-more="voice">
+                        <span class="more-ico">
+                            <svg viewBox="0 0 24 24" aria-hidden="true">
+                                <rect x="9" y="2.6" width="6" height="11" rx="3"/>
+                                <path d="M5 11.4a7 7 0 0 0 14 0"/>
+                                <line x1="12" y1="18.4" x2="12" y2="21.6"/>
+                                <line x1="8.6" y1="21.6" x2="15.4" y2="21.6"/>
+                            </svg>
+                        </span>
+                        <span class="more-label">语音</span>
+                    </button>
+                </div>
+
+                <!-- 录音浮层：左半区=转文字，右半区=取消（微信式），中间显示波形与时长 -->
+                <div class="voice-recording" id="voice-recording" hidden>
+                    <div class="vr-zone vr-text" id="vr-text">
+                        <svg class="vr-ico" viewBox="0 0 24 24" aria-hidden="true">
+                            <polyline points="4 7 4 4 20 4 20 7"/>
+                            <line x1="9" y1="20" x2="15" y2="20"/>
+                            <line x1="12" y1="4" x2="12" y2="20"/>
+                        </svg>
+                        <span class="vr-title">转文字</span>
+                        <span class="vr-sub">左滑松手</span>
+                    </div>
+                    <div class="vr-center">
+                        <div class="voice-rec-wave"><i></i><i></i><i></i><i></i><i></i></div>
+                        <span id="voice-rec-timer">0&nbsp;″</span>
+                        <span id="voice-rec-tip">松开发送</span>
+                    </div>
+                    <div class="vr-zone vr-cancel" id="vr-cancel">
+                        <svg class="vr-ico" viewBox="0 0 24 24" aria-hidden="true">
+                            <line x1="6" y1="6" x2="18" y2="18"/>
+                            <line x1="18" y1="6" x2="6" y2="18"/>
+                        </svg>
+                        <span class="vr-title">取消</span>
+                        <span class="vr-sub">右滑松手</span>
+                    </div>
+                </div>
+            </footer>
+        </div>
+    </main>
+
+    <!-- =====================================================================
+         联系人（好友 / 群聊 / 新的朋友）
+         ===================================================================== -->
+    <section class="contacts-view" id="contacts-view" hidden>
+        <aside class="contacts-master">
+            <header class="contacts-head">
+                <h2>联系人</h2>
+                <div class="contacts-head-actions">
+                    <button class="icon-btn" id="btn-contact-add" title="添加好友">
+                        <svg viewBox="0 0 24 24" aria-hidden="true">
+                            <circle cx="10" cy="8" r="3.6"/>
+                            <path d="M3.6 19.6c0-3.5 2.9-5.6 6.4-5.6 1.6 0 3 .4 4.1 1.2"/>
+                            <line x1="18" y1="13" x2="18" y2="21"/>
+                            <line x1="14" y1="17" x2="22" y2="17"/>
+                        </svg>
+                    </button>
+                    <button class="icon-btn" id="btn-contact-group" title="创建群聊">
+                        <svg viewBox="0 0 24 24" aria-hidden="true">
+                            <circle cx="8" cy="9" r="3"/>
+                            <circle cx="16" cy="9" r="3"/>
+                            <path d="M2.8 19c0-2.8 2.3-4.4 5.2-4.4s5.2 1.6 5.2 4.4"/>
+                            <path d="M14.4 14.8c2.6.1 4.8 1.6 4.8 4.2"/>
+                        </svg>
+                    </button>
+                </div>
+            </header>
+
+            <div class="contacts-tabs">
+                <button class="contacts-tab active" data-contact-tab="friends">好友</button>
+                <button class="contacts-tab" data-contact-tab="groups">群聊</button>
+                <button class="contacts-tab" data-contact-tab="requests">
+                    新的朋友<span class="tab-badge" id="contact-request-badge" hidden>0</span>
+                </button>
+            </div>
+
+            <div class="contacts-scroll">
+                <div id="contacts-list" class="contacts-list"></div>
+                <div class="contacts-empty" id="contacts-empty" hidden>
+                    <p id="contacts-empty-text">还没有好友</p>
+                </div>
+            </div>
+        </aside>
+
+        <main class="contacts-detail" id="contacts-detail">
+            <div class="detail-empty" id="contacts-detail-empty">
+                <div class="detail-empty-icon">👥</div>
+                <p>选择左侧的联系人查看详情</p>
+            </div>
+            <div class="detail-panel" id="contacts-detail-panel" hidden></div>
+        </main>
+    </section>
+
+    <!-- =====================================================================
+         动态（朋友圈 / 微博）
+         ===================================================================== -->
+    <section class="feed-view" id="feed-view" hidden>
+        <div class="feed-wrap">
+            <header class="feed-head">
+                <h2>动态</h2>
+                <span class="feed-head-spacer"></span>
+                <button class="ghost-btn feed-refresh" id="btn-feed-refresh">刷新</button>
+                <button class="icon-btn feed-new" id="btn-new-post" title="发表动态">
+                    <svg viewBox="0 0 24 24" aria-hidden="true">
+                        <line x1="12" y1="5" x2="12" y2="19"/>
+                        <line x1="5" y1="12" x2="19" y2="12"/>
+                    </svg>
+                </button>
+            </header>
+
+            <div class="feed-scroll" id="feed-scroll">
+                <div class="feed-list" id="feed-list"></div>
+
+                <div class="feed-empty" id="feed-empty" hidden>
+                    <div class="feed-empty-icon">🌤</div>
+                    <p>还没有动态，点右上角 + 发一条</p>
+                </div>
+
+                <div class="feed-more" id="feed-more" hidden>
+                    <button class="ghost-btn" id="btn-feed-more">加载更多</button>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- 发表动态（点 + 进入） -->
+    <section class="feed-view" id="post-compose-view" hidden>
+        <div class="feed-wrap">
+            <header class="feed-head">
+                <button class="icon-btn" id="btn-compose-back" title="返回">
+                    <svg viewBox="0 0 24 24" aria-hidden="true">
+                        <polyline points="15 18 9 12 15 6"/>
+                    </svg>
+                </button>
+                <h2>发表动态</h2>
+                <span class="feed-head-spacer"></span>
+                <button class="text-btn" id="btn-post-send" disabled>发表</button>
+            </header>
+
+            <div class="feed-scroll">
+                <div class="compose compose-page">
+                    <div class="compose-top">
+                        <div class="me-avatar me-avatar-sm" id="compose-avatar">我</div>
+                        <textarea id="post-input" rows="6" maxlength="2000"
+                                  placeholder="这一刻的想法…"></textarea>
+                    </div>
+                    <div class="compose-thumbs" id="compose-thumbs" hidden></div>
+                    <div class="compose-foot">
+                        <button class="icon-btn compose-pick" id="btn-pick-images" title="添加图片">
+                            <svg viewBox="0 0 24 24" aria-hidden="true">
+                                <rect x="3" y="4.5" width="18" height="15" rx="3"/>
+                                <circle cx="8.6" cy="10" r="1.6"/>
+                                <path d="M4 17l4.6-4.3 3.2 2.9 3-2.6L20 16.5"/>
+                            </svg>
+                        </button>
+                        <span class="compose-count" id="post-count">0/2000</span>
+                    </div>
+                    <input type="file" id="post-file-input" hidden multiple
+                           accept="image/png,image/jpeg,image/gif,image/webp">
+                </div>
+                <p class="compose-tip">最多 9 张图片，单张不超过 5MB</p>
+            </div>
+        </div>
+    </section>
+
+    <!-- =====================================================================
+         某人的动态（从动态卡片头像点进来）
+         ===================================================================== -->
+    <section class="feed-view" id="user-feed-view" hidden>
+        <div class="feed-wrap">
+            <header class="feed-head">
+                <button class="icon-btn" id="btn-user-feed-back" title="返回">
+                    <svg viewBox="0 0 24 24" aria-hidden="true">
+                        <polyline points="15 18 9 12 15 6"/>
+                    </svg>
+                </button>
+                <h2 id="user-feed-title">TA 的动态</h2>
+                <span class="feed-head-spacer"></span>
+            </header>
+
+            <div class="feed-scroll" id="user-feed-scroll">
+                <div class="feed-list" id="user-feed-list"></div>
+                <div class="feed-empty" id="user-feed-empty" hidden>
+                    <div class="feed-empty-icon">📭</div>
+                    <p>TA 还没有发过动态</p>
+                </div>
+                <div class="feed-more" id="user-feed-more" hidden>
+                    <button class="ghost-btn" id="btn-user-feed-more">加载更多</button>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- =====================================================================
+         我（微信风格的个人中心）
+         ===================================================================== -->
+    <section class="me-view" id="me-view" hidden>
+        <!-- 主页面 -->
+        <div class="me-page" id="me-page">
+            <div class="me-scroll">
+                <div class="me-profile" id="me-profile" data-me="detail" role="button" tabindex="0">
+                    <div class="me-avatar" id="me-avatar">我</div>
+                    <div class="me-profile-main">
+                        <div class="me-name" id="me-name">—</div>
+                        <div class="me-meta" id="me-meta">pp号：—</div>
+                        <div class="me-sign" id="me-sign"></div>
+                    </div>
+                    <span class="chev">›</span>
+                </div>
+
+                <div class="me-group">
+                    <button class="me-row" data-me="qr">
+                        <span class="me-row-icon">
+                            <svg viewBox="0 0 24 24" aria-hidden="true">
+                                <rect x="3" y="3" width="7" height="7" rx="1.2"/>
+                                <rect x="14" y="3" width="7" height="7" rx="1.2"/>
+                                <rect x="3" y="14" width="7" height="7" rx="1.2"/>
+                                <path d="M14 14h3v3h-3z"/>
+                                <path d="M19 19h2v2h-2z"/>
+                            </svg>
+                        </span>
+                        <span class="me-row-label">我的二维码</span>
+                        <span class="chev">›</span>
+                    </button>
+                </div>
+
+                <div class="me-group">
+                    <button class="me-row" data-me="grants">
+                        <span class="me-row-icon">
+                            <svg viewBox="0 0 24 24" aria-hidden="true">
+                                <path d="M12 3.2 19 6v5.4c0 4.3-2.9 7.6-7 9.4-4.1-1.8-7-5.1-7-9.4V6z"/>
+                                <path d="m9.2 12.2 2 2 3.6-3.8"/>
+                            </svg>
+                        </span>
+                        <span class="me-row-label">授权管理</span>
+                        <span class="chev">›</span>
+                    </button>
+                    <button class="me-row" data-me="security">
+                        <span class="me-row-icon">
+                            <svg viewBox="0 0 24 24" aria-hidden="true">
+                                <rect x="5" y="10.5" width="14" height="9.5" rx="2.2"/>
+                                <path d="M8.4 10.5V7.6a3.6 3.6 0 0 1 7.2 0v2.9"/>
+                            </svg>
+                        </span>
+                        <span class="me-row-label">账号与安全</span>
+                        <span class="chev">›</span>
+                    </button>
+                    <button class="me-row" data-me="about">
+                        <span class="me-row-icon">
+                            <svg viewBox="0 0 24 24" aria-hidden="true">
+                                <circle cx="12" cy="12" r="8.6"/>
+                                <path d="M12 11v5.6"/>
+                                <circle cx="12" cy="7.7" r="1" fill="currentColor" stroke="none"/>
+                            </svg>
+                        </span>
+                        <span class="me-row-label">关于 pp</span>
+                        <span class="chev">›</span>
+                    </button>
+                </div>
+
+                <div class="me-group">
+                    <button class="me-row me-row-danger" data-me="logout">退出登录</button>
+                </div>
+
+                <p class="me-footer">pp · 网页版 v1.0</p>
+            </div>
+        </div>
+
+        <!-- 个人信息 -->
+        <div class="me-page" id="me-detail" hidden>
+            <header class="subpage-head">
+                <button class="icon-btn" data-me="back" title="返回">
+                    <svg viewBox="0 0 24 24" aria-hidden="true">
+                        <polyline points="15 18 9 12 15 6"/>
+                    </svg>
+                </button>
+                <h2>个人信息</h2>
+                <span class="subpage-spacer"></span>
+            </header>
+
+            <div class="me-scroll">
+                <div class="me-group">
+                    <button class="me-row" data-me="edit-avatar">
+                        <span class="me-row-label">头像</span>
+                        <div class="me-avatar me-avatar-sm" id="me-detail-avatar">我</div>
+                        <span class="chev">›</span>
+                    </button>
+                    <button class="me-row" data-me="edit-nickname">
+                        <span class="me-row-label">名字</span>
+                        <span class="me-row-value" id="me-detail-name">—</span>
+                        <span class="chev">›</span>
+                    </button>
+                    <button class="me-row" data-me="edit-ppid">
+                        <span class="me-row-label">pp 号</span>
+                        <span class="me-row-value" id="me-detail-ppid">—</span>
+                        <span class="chev">›</span>
+                    </button>
+                    <button class="me-row" data-me="qr">
+                        <span class="me-row-label">我的二维码</span>
+                        <span class="chev">›</span>
+                    </button>
+                </div>
+
+                <div class="me-group">
+                    <button class="me-row" data-me="edit-signature">
+                        <span class="me-row-label">个性签名</span>
+                        <span class="me-row-value" id="me-detail-sign">未填写</span>
+                        <span class="chev">›</span>
+                    </button>
+                </div>
+
+                <p class="me-footnote">资料修改后会立即同步给好友</p>
+            </div>
+        </div>
+
+        <!-- 编辑资料 -->
+        <div class="me-page" id="me-edit" hidden>
+            <header class="subpage-head">
+                <button class="icon-btn" data-me="close-edit" title="返回">
+                    <svg viewBox="0 0 24 24" aria-hidden="true">
+                        <polyline points="15 18 9 12 15 6"/>
+                    </svg>
+                </button>
+                <h2>编辑资料</h2>
+                <span class="subpage-spacer"></span>
+                <button class="text-btn" id="btn-save-profile">保存</button>
+            </header>
+
+            <div class="me-scroll">
+                <div class="me-group">
+                    <button class="me-row" id="btn-change-avatar">
+                        <span class="me-row-label">头像</span>
+                        <div class="me-avatar me-avatar-sm" id="me-edit-avatar">我</div>
+                        <span class="me-row-value">点击更换</span>
+                        <span class="chev">›</span>
+                    </button>
+                    <input type="file" id="avatar-file-input" hidden
+                           accept="image/png,image/jpeg,image/gif,image/webp">
+                </div>
+
+                <div class="me-group edit-fields">
+                    <label class="edit-field">
+                        <span class="edit-label">名字</span>
+                        <input id="edit-nickname" class="edit-input" type="text"
+                               maxlength="20" placeholder="你的昵称">
+                        <span class="edit-counter" id="edit-nickname-count">0/20</span>
+                    </label>
+                    <label class="edit-field">
+                        <span class="edit-label">pp 号</span>
+                        <input id="edit-ppid" class="edit-input" type="text"
+                               maxlength="20" placeholder="4~20 位字母、数字或下划线">
+                        <span class="edit-counter" id="edit-ppid-count">0/20</span>
+                    </label>
+                    <label class="edit-field edit-field-column">
+                        <span class="edit-label">个性签名</span>
+                        <textarea id="edit-signature" class="edit-textarea" rows="3"
+                                  maxlength="80" placeholder="一句话介绍自己"></textarea>
+                        <span class="edit-counter" id="edit-signature-count">0/80</span>
+                    </label>
+                </div>
+
+                <p class="me-footnote">昵称 1~20 字，pp 号 4~20 位字母、数字或下划线。</p>
+            </div>
+        </div>
+
+        <!-- 我的二维码 -->
+        <div class="me-page" id="me-qr" hidden>
+            <header class="subpage-head">
+                <button class="icon-btn" data-me="back" title="返回">
+                    <svg viewBox="0 0 24 24" aria-hidden="true">
+                        <polyline points="15 18 9 12 15 6"/>
+                    </svg>
+                </button>
+                <h2>我的二维码</h2>
+                <span class="subpage-spacer"></span>
+            </header>
+
+            <div class="me-scroll">
+                <div class="qr-card">
+                    <div class="qr-head">
+                        <div class="qr-avatar" id="me-qr-avatar">我</div>
+                        <div class="qr-head-info">
+                            <div class="qr-name" id="me-qr-name">—</div>
+                            <div class="qr-id" id="me-qr-id">pp号：—</div>
+                        </div>
+                    </div>
+
+                    <div class="qr-canvas-wrap">
+                        <canvas id="me-qrcode" class="qr-canvas"></canvas>
+                        <div class="qr-loading" id="qr-loading">二维码生成中…</div>
+                    </div>
+
+                    <p class="qr-hint">扫一扫，直接打开 pp 加我为好友</p>
+
+                    <div class="qr-actions">
+                        <button class="btn btn-ghost" id="btn-copy-qrlink">复制链接</button>
+                        <button class="btn btn-primary" id="btn-save-qr">保存图片</button>
+                    </div>
+
+                    <button class="qr-ppid" id="btn-copy-ppid">复制 pp 号</button>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- =====================================================================
+         收藏夹（长按消息 → 收藏）
+         ===================================================================== -->
+    <section class="fav-view" id="fav-view" hidden>
+        <header class="fav-head">
+            <h2>收藏夹</h2>
+            <span class="fav-count" id="fav-count"></span>
+        </header>
+        <div class="fav-list" id="fav-list"></div>
+    </section>
+</section>
+
+<div class="toast" id="toast" hidden></div>
+<div class="conn-banner" id="conn-banner" hidden>
+    <span class="conn-banner-dot"></span>
+    <span id="conn-banner-text">连接已断开，正在重连…</span>
+</div>
+
+<!-- 通用弹窗：添加好友 / 好友申请 / 创建群聊 / 群成员 / 个人资料 -->
+<div class="modal-root" id="modal-root" hidden>
+    <div class="modal-backdrop" data-modal-close></div>
+    <section class="modal-card" role="dialog" aria-modal="true">
+        <header class="modal-head">
+            <h3 id="modal-title">标题</h3>
+            <button class="icon-btn" id="modal-close" title="关闭">✕</button>
+        </header>
+        <div class="modal-body" id="modal-body"></div>
+        <footer class="modal-foot" id="modal-foot" hidden></footer>
+    </section>
+</div>
+
+<script src="js/config.js"></script>
+<script src="js/protocol.js"></script>
+<script src="js/ws-client.js"></script>
+<script src="js/store.js"></script>
+<script src="js/ui.js"></script>
+<script src="js/qr.js"></script>
+<script src="js/voice.js"></script>
+<script src="js/app.js"></script>
+</body>
+</html>
