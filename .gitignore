@@ -36,3 +36,6 @@ vcpkg_installed_linux/
 !.env.example
 config/cos.env
 config/oauth.env
+
+# ---------- 本地素材（网图下载缓存）----------
+lab/demo-images/

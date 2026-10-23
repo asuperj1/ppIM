@@ -37,13 +37,15 @@ G_PRODUCT = 1   # 产品体验群
 G_DEV = 2       # pp 开发组
 G_HIKE = 3      # 周末爬山小队
 
-# ---- 复用 COS 上已有的对象（图片 / 语音 / 文件）----
-IMG_HOME = "https://im-chat-file-1486398453.cos.ap-shanghai.myqcloud.com/chat/20261020/54895d1e3c1944e5f1e7fade5697ac41.jpg"
-IMG_ERR = "https://im-chat-file-1486398453.cos.ap-shanghai.myqcloud.com/chat/20261020/261e4cafb14268d0b442a04511102245.jpg"
-IMG_UI = "https://im-chat-file-1486398453.cos.ap-shanghai.myqcloud.com/chat/20261020/142ff282bb9d68bb6e16aa26089de628.jpg"
-IMG_HIKE = "https://im-chat-file-1486398453.cos.ap-shanghai.myqcloud.com/chat/20261019/1dc6670fff09767a4906b11d83827b4b.jpg"
-IMG_SCENE = "https://im-chat-file-1486398453.cos.ap-shanghai.myqcloud.com/chat/20261019/ca7f9be4242ce71b3cd498777c42db1b.jpg"
-IMG_EXTRA = "https://im-chat-file-1486398453.cos.ap-shanghai.myqcloud.com/chat/20261019/c9f79d93d5214e108cc7d61f22cf1c6f.jpg"
+# ---- 演示图片（CC0 网图，已上传到 COS）----
+BASE = "https://im-chat-file-1486398453.cos.ap-shanghai.myqcloud.com/chat/20261023/"
+IMG_DRAFT = BASE + "8151e556b44f40dd9f3032a52914918b.jpg"   # 设计师 + 线框草图
+IMG_HOME = BASE + "dea9479067b343758cb7bc6325898603.jpg"    # 笔记本上的界面
+IMG_SKETCH = BASE + "49ceb14a52be4a0098d87aaff6ad474f.jpg"  # 手绘线框 + 手机
+IMG_CODE = BASE + "8f8ce5de00604530bb40569289756f8b.jpg"    # 代码屏
+IMG_RIDGE = BASE + "70c99e56fac347daaf4a737562833b28.jpg"   # 山脊徒步
+IMG_PEAK = BASE + "ffe04a95bbc44adc967d679b7b575ffb.jpg"    # 雪山
+IMG_STUDIO = BASE + "6aa6c500b3164803a6c84ef207df7e7f.jpg"  # 工作室
 
 VOICE_3S = "https://im-chat-file-1486398453.cos.ap-shanghai.myqcloud.com/chat/20261020/88d74e46569ba62fea5c004022e2b3b9.m4a"
 VOICE_4S = "https://im-chat-file-1486398453.cos.ap-shanghai.myqcloud.com/chat/20261021/d3d3e00065184b2b710693720a609714.webm"
@@ -185,7 +187,7 @@ def seed_chat(conn) -> None:
     home_ts = day_at(2, 21, 5)
     home_msg = add_msg(conn, U_LIN, ME, 0, "新版首页的稿子我放群里了，你有空看下间距", home_ts)
     add_msg(conn, U_LIN, ME, 0, "[图片]", home_ts + 60, msg_kind=2,
-            file_url=IMG_HOME, file_name="新版首页-2.1.png", file_size=244335)
+            file_url=IMG_DRAFT, file_name="新版首页-2.1.jpg", file_size=121000)
     add_msg(conn, ME, U_LIN, 0, "收到", home_ts + 180)
     add_msg(conn, ME, U_LIN, 0, "这版留白比上一版舒服，标题层级也清楚", home_ts + 240,
             quote=(str(home_msg), "新版首页的稿子我放群里了，你有空看下间距", "林小满"))
@@ -212,7 +214,7 @@ def seed_chat(conn) -> None:
     add_msg(conn, ME, U_CHEN, 0, "还有个细节：服务端会把 from_uid 用会话里的 uid 覆盖，客户端传什么都不认",
             day_at(1, 15, 26))
     add_msg(conn, U_CHEN, ME, 0, "[图片]", day_at(0, 8, 50), msg_kind=2,
-            file_url=IMG_ERR, file_name="报错截图.png", file_size=185292)
+            file_url=IMG_CODE, file_name="报错截图.jpg", file_size=97000)
     add_msg(conn, U_CHEN, ME, 0, "这个报错你见过吗", day_at(0, 8, 51))
     add_msg(conn, ME, U_CHEN, 0, "COS 的 PUT 少带了 Content-Type，补上就好", day_at(0, 8, 55))
 
@@ -230,7 +232,7 @@ def seed_chat(conn) -> None:
     add_msg(conn, ME, 0, G_DEV, "明天下午三点对一下进度", plan_ts + 600)
     add_msg(conn, U_LIN, 0, G_DEV, "唐王", plan_ts + 660, msg_kind=4)          # 拍一拍
     add_msg(conn, U_XU, 0, G_DEV, "[图片]", day_at(0, 10, 30), msg_kind=2,
-            file_url=IMG_UI, file_name="首页改版.png", file_size=230951)
+            file_url=IMG_HOME, file_name="首页改版.jpg", file_size=78000)
     add_msg(conn, U_XU, 0, G_DEV, "首页改完的效果", day_at(0, 10, 31))
 
     # ============ 群聊 2：产品体验群 ============
@@ -242,7 +244,7 @@ def seed_chat(conn) -> None:
     add_msg(conn, U_SU, 0, G_HIKE, "这周六天气不错，有人去爬香山吗", day_at(2, 19, 0))
     add_msg(conn, U_CHEN, 0, G_HIKE, "算我一个", day_at(2, 19, 5))
     add_msg(conn, ME, 0, G_HIKE, "[图片]", day_at(2, 19, 8), msg_kind=2,
-            file_url=IMG_HIKE, file_name="上次的山顶.jpg", file_size=154048)
+            file_url=IMG_RIDGE, file_name="上次的山顶.jpg", file_size=218000)
     add_msg(conn, ME, 0, G_HIKE, "上次拍的，不知道这周叶子红了没", day_at(2, 19, 8) + 10)
     add_msg(conn, U_SU, 0, G_HIKE, "八点地铁口集合？", day_at(2, 19, 10))
 
@@ -275,7 +277,7 @@ def seed_feed(conn) -> None:
     add_post(
         U_LIN,
         "把首页的留白重新调了一遍，眼睛终于不累了。",
-        [IMG_UI],
+        [IMG_HOME],
         day_at(1, 21, 30),
         [U_CHEN, U_ZHOU, ME],
         [(U_CHEN, "确实通透"), (ME, "这版可以定稿了")],
@@ -291,15 +293,15 @@ def seed_feed(conn) -> None:
     add_post(
         U_SU,
         "周末爬山，山顶风很大，但视野值回票价。",
-        [IMG_HIKE],
+        [IMG_PEAK],
         day_at(2, 19, 30),
         [U_LIN, U_CHEN, ME],
         [],
     )
     add_post(
         ME,
-        "pp 的语音输入终于能用了，说的什么就转什么。",
-        [IMG_HOME],
+        "语音输入的交互终于落地了，说一句就自动转成文字。",
+        [IMG_SKETCH],
         day_at(0, 9, 40),
         [U_LIN, U_CHEN, U_ZHOU, U_SU],
         [(U_LIN, "试了下识别挺准")],
@@ -307,7 +309,7 @@ def seed_feed(conn) -> None:
     add_post(
         U_ZHOU,
         "整理了一版体验走查清单，明天发给大家。",
-        [IMG_EXTRA],
+        [IMG_STUDIO],
         day_at(2, 10, 15),
         [ME],
         [(U_LU, "等你的清单")],
