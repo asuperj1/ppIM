@@ -148,6 +148,16 @@
     let voiceAudio = null;
     let voicePlayingBtn = null;
 
+    // ---- 消息区的滚动锚点 ----
+    // stickBottom：进入会话 / 刚收到消息时保持贴底，直到用户自己滚动或 3 秒超时。
+    //   图片是 lazy 加载的，加载完高度会突变，只滚一次会被“顶”回中间。
+    // keepAnchor：向上加载历史时记录“距底部的距离”，高度变化后继续维持这个距离。
+    let stickBottom = false;
+    let stickTimer = null;
+    let keepAnchor = null;
+    let anchorTimer = null;
+    let lastUserScrollAt = 0;
+
     function stopVoicePlayback() {
         if (voiceAudio) {
             try { voiceAudio.pause(); } catch (err) { /* 忽略 */ }
@@ -1273,25 +1283,73 @@
 
             // 移动端 .chat 刚才还是 display:none，renderMessages 里的
             // `scrollTop = scrollHeight` 写在不可见元素上（scrollHeight 为 0）不生效。
-            // 必须等元素真正可见、布局完成后再贴一次底。
-            this.scrollToBottom();
+            // 必须等元素真正可见、布局完成后再贴一次底；图片后续加载还要继续贴。
+            this.scrollToBottom({ sticky: true });
         },
 
         /**
          * 把消息区滚到底部。
-         * 连续两帧各滚一次：第一帧元素刚获得布局，第二帧等图片/字体重排完成。
+         * @param {{sticky?: boolean}} [opts] sticky = 图片等异步撑高后继续贴底
          */
-        scrollToBottom() {
+        scrollToBottom(opts) {
             const box = this.el.messages;
             if (!box) return;
-            box.scrollTop = box.scrollHeight;
+
+            if (opts && opts.sticky) {
+                stickBottom = true;
+                clearTimeout(stickTimer);
+                stickTimer = setTimeout(function () { stickBottom = false; }, 3000);
+            }
+
             const again = function () { box.scrollTop = box.scrollHeight; };
+            again();
             if (typeof requestAnimationFrame === 'function') {
                 requestAnimationFrame(function () {
                     again();
                     requestAnimationFrame(again);
                 });
             }
+        },
+
+        /**
+         * 只要消息区滚离底部，就认为用户在看历史，取消"粘性贴底"。
+         * 覆盖滚轮/触摸以外的场景（键盘 PageUp、拖滚动条、程序设置 scrollTop）。
+         */
+        releaseStick() {
+            const box = this.el.messages;
+            if (!box) return;
+            if (box.scrollHeight - box.scrollTop - box.clientHeight > 60) {
+                stickBottom = false;
+                lastUserScrollAt = Date.now();
+            }
+        },
+
+        /**
+         * 监听消息区高度变化，保持贴底 / 保持距底距离。
+         * 只绑一次（处于 init 末尾调用）。
+         */
+        bindMessagesAnchor() {
+            const box = this.el.messages;
+            const list = this.el.messageList;
+            if (!box || !list) return;
+
+            const release = function () {
+                lastUserScrollAt = Date.now();
+                stickBottom = false;
+            };
+            box.addEventListener('wheel', release, { passive: true });
+            box.addEventListener('touchmove', release, { passive: true });
+
+            if (!global.ResizeObserver) return;
+            new global.ResizeObserver(function () {
+                // 用户正在自己滚动时不要抢滚动条
+                if (Date.now() - lastUserScrollAt < 300) return;
+                if (stickBottom) {
+                    box.scrollTop = box.scrollHeight;
+                } else if (keepAnchor != null) {
+                    box.scrollTop = Math.max(0, box.scrollHeight - keepAnchor);
+                }
+            }).observe(list);
         },
 
         renderChatHeader() {
@@ -1444,9 +1502,14 @@
             }
 
             if (opts.keepPosition) {
+                // 向上加载历史：维持“距底部距离”不变，图片撑高后也不漂移
                 box.scrollTop = prevTop + (box.scrollHeight - prevHeight);
-            } else if (opts.forceBottom || nearBottom) {
-                // 统一走 scrollToBottom：刚显示的元素要等一帧才有正确的 scrollHeight
+                keepAnchor = box.scrollHeight - box.scrollTop;
+                clearTimeout(anchorTimer);
+                anchorTimer = setTimeout(function () { keepAnchor = null; }, 3000);
+            } else if (opts.forceBottom) {
+                this.scrollToBottom({ sticky: true });
+            } else if (nearBottom) {
                 this.scrollToBottom();
             }
         },

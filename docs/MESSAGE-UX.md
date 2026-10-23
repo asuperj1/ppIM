@@ -86,15 +86,33 @@
 - 冷却：前端 800ms 内不重复发送，防连点刷屏
 - 样式：`.system-msg.pat`，居中灰色小字，出现时 `patPop` 轻微弹一下
 
-## 九、进入会话定位
+## 九、进入会话定位与历史加载
 
-进入私聊 / 群聊时**必须停在最新一条消息处**。
+### 进入会话：必须在底部
+
+消息按时间**从旧到新从上往下**排列，进入私聊 / 群聊时视口停在**最新一条**。
 
 ⚠️ 移动端 `.chat` 默认 `display: none`，点开会话时才加 `.mobile-open`。
 此时 `renderMessages({forceBottom:true})` 里的 `scrollTop = scrollHeight` 写在
-**不可见元素**上（`scrollHeight` 为 0）不生效，必须等元素可见后再滚一次。
-因此统一走 `UI.scrollToBottom()`：立即滚一次 + 连续两帧 `requestAnimationFrame`
-各补一次，覆盖字体/图片重排。
+**不可见元素**上（`scrollHeight` 为 0）不生效。
+
+因此统一走 `UI.scrollToBottom({ sticky: true })`：
+
+1. 立即滚一次 + 连续两帧 `requestAnimationFrame` 各补一次（覆盖字体/布局）；
+2. **粘性贴底**：`ResizeObserver` 监听 `.message-list`，图片等异步撑高后继续贴底，
+   直到用户在 3 秒内主动滚动、或滚动位置离开底部 60px 以上（`UI.releaseStick()`）。
+
+> 只滚一次是不够的：图片是 `loading="lazy"`，加载完成会把内容顶高，
+> 视口就停在"半中间"——这正是"进去不是底部"的真实原因。
+
+### 历史加载：从上往下扩展
+
+- 首屏拉最近 **30 条**（`before_id = 0`），到底部；
+- **滚动到顶部 80px 内自动加载**更早的 30 条（`loadOlder()`），不再需要点按钮；
+  「查看更早的消息」按钮保留为兜底；
+- 加载时记录"距底部距离"（`keepAnchor`），新内容插到上方后**视口内容不跳动**；
+- 若加载后内容仍不满一屏，自动继续拉取，直到填满或 `hasMore = false`。
+
 
 ## 十、更换头像
 

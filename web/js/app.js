@@ -17,6 +17,7 @@
 
     const historyState = new Map();     // key -> { hasMore }
     const historyRequests = new Map();  // key -> beforeId
+    const historyLoading = new Set();   // 正在拉历史的会话 key（滚动到达顶部时防重复）
 
     // 长期会话令牌（与 oauth.html 共用同一个 key，实现「授权页免重复登录」）
     const TOKEN_KEY = 'pp_token';
@@ -305,9 +306,11 @@
 
     function requestHistory(key, beforeId) {
         if (!client.isOpen()) return;
+        if (historyLoading.has(key)) return;
         const info = Store.parseKey(key);
         const before = beforeId || 0;
         historyRequests.set(key, before);
+        historyLoading.add(key);
 
         if (info.kind === 'group') {
             client.send(MsgType.GROUP_HISTORY_REQ, {
@@ -322,6 +325,28 @@
                 limit: 30,
             });
         }
+    }
+
+    /**
+     * 加载更早的消息（微信式：滚到顶部自动加载）。
+     * 首屏历史未回、加载中、没有更多时直接返回，所以可以放心地在 scroll 里调。
+     */
+    function loadOlder() {
+        const key = Store.activeKey;
+        if (!key || !client.isOpen()) return;
+
+        const state = historyState.get(key);
+        if (!state || !state.hasMore) return;
+        if (historyLoading.has(key)) return;
+        if (!Store.historyLoaded.has(key)) return;
+
+        const box = UI.el.messages;
+        if (!box || box.scrollTop > 80) return;
+
+        const list = Store.messages.get(key) || [];
+        const first = list.find((m) => m.id);
+        if (!first) return;
+        requestHistory(key, Number(first.id));
     }
 
     // -------------------------------------------------------------------------
@@ -1949,6 +1974,7 @@
         const peer = String(data.peerUid);
         const key = Store.keyOfPrivate(peer);
         const before = historyRequests.get(key) || 0;
+        historyLoading.delete(key);
 
         for (const m of data.messages || []) {
             Store.addMessage(key, {
@@ -1977,6 +2003,8 @@
         if (Store.activeKey === key) {
             UI.renderMessages({ keepPosition: before > 0, forceBottom: before === 0 });
             UI.setLoadMoreVisible(!!data.hasMore);
+            // 加载后内容仍不满一屏（位置还在顶部）就接着拉，避免用户“滚不动”
+            if (before > 0 && data.hasMore) setTimeout(loadOlder, 60);
         }
     }
 
@@ -1984,6 +2012,7 @@
         const gid = String(data.gid);
         const key = Store.keyOfGroup(gid);
         const before = historyRequests.get(key) || 0;
+        historyLoading.delete(key);
 
         for (const m of data.messages || []) {
             Store.addMessage(key, {
@@ -2013,6 +2042,7 @@
         if (Store.activeKey === key) {
             UI.renderMessages({ keepPosition: before > 0, forceBottom: before === 0 });
             UI.setLoadMoreVisible(!!data.hasMore);
+            if (before > 0 && data.hasMore) setTimeout(loadOlder, 60);
         }
     }
 
@@ -3249,13 +3279,14 @@
         UI.el.btnChatInfo.addEventListener('click', openChatInfo);
 
         UI.el.btnLoadMore.addEventListener('click', () => {
-            const key = Store.activeKey;
-            if (!key) return;
-            const list = Store.messages.get(key) || [];
-            const first = list.find((m) => m.id);
-            if (!first) return;
-            requestHistory(key, Number(first.id));
+            loadOlder();
         });
+
+        // 滚到顶部附近自动加载更早的消息（微信式）
+        UI.el.messages.addEventListener('scroll', () => {
+            UI.releaseStick();
+            loadOlder();
+        }, { passive: true });
 
         UI.el.btnLogout.addEventListener('click', () => {
             if (!window.confirm('确定退出登录吗？')) return;
@@ -3393,6 +3424,7 @@
     // -------------------------------------------------------------------------
     document.addEventListener('DOMContentLoaded', () => {
         UI.init();
+        UI.bindMessagesAnchor();
 
         // 从外部页（授权管理等）回来时用 ?view=me 指定要回到的 tab
         const wantedView = new URLSearchParams(location.search).get('view');
