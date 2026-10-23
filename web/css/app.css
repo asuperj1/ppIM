@@ -769,8 +769,7 @@ svg {
     flex: 1;
     min-height: 0;
     overflow-y: auto;
-    padding: 18px 4px 16px 16px;
-    /* 消息少时要贴底（微信行为），否则最后一条与输入栏之间会留一大块空白 */
+    padding: 10px 4px 16px 16px;
     display: flex;
     flex-direction: column;
     /* 隐藏滚动条（仍可滚动）：右侧那条竖杠会挡住消息与输入栏 */
@@ -790,8 +789,9 @@ svg {
     /* 必须显式给宽度：父级是 flex column，只写左右 auto 会让列表收缩成内容宽度 */
     width: 100%;
     max-width: 900px;
-    /* 上 auto 把列表顶到底部，左右 auto 保持居中 */
-    margin: auto auto 0;
+    /* 水平居中、垂直从顶部开始：首条消息必须贴着消息区顶部，
+       不能写 margin-top:auto —— 那会把列表顶到底部，短会话时上方留一大块空白 */
+    margin: 0 auto;
 }
 
 .load-more {
@@ -816,7 +816,8 @@ svg {
 .day-divider {
     display: flex;
     justify-content: center;
-    margin: 6px 0;
+    /* 首条分隔线不要额外上外边距，否则首条消息上方会多出一小块空白 */
+    margin: 0 0 2px;
 }
 
 .day-divider span {
@@ -1901,7 +1902,7 @@ svg {
     }
 
     .messages {
-        padding: 14px 4px 16px;
+        padding: 10px 4px 16px;
     }
 
     .composer {
